@@ -1,11 +1,13 @@
 @preconcurrency import AVFoundation
 @preconcurrency import Speech
+import CoreMedia
 import Foundation
 
 enum SpeechRecognitionServiceError: LocalizedError {
     case microphoneDenied
     case speechRecognitionDenied
     case recognizerUnavailable
+    case microphoneUnavailable
     case couldNotStartAudio
     case recognitionFailed(String)
 
@@ -17,6 +19,8 @@ enum SpeechRecognitionServiceError: LocalizedError {
             "Speech recognition access is off. Turn it on in System Settings → Privacy & Security → Speech Recognition."
         case .recognizerUnavailable:
             "Speech recognition is not available right now. You can type your problem instead."
+        case .microphoneUnavailable:
+            "I couldn’t find an available microphone. Check your Mac’s sound input, or type your problem instead."
         case .couldNotStartAudio:
             "I couldn’t start the microphone. You can type your problem instead."
         case let .recognitionFailed(message):
@@ -27,11 +31,10 @@ enum SpeechRecognitionServiceError: LocalizedError {
 
 @MainActor
 final class SpeechRecognitionService {
-    private let audioEngine = AVAudioEngine()
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private let microphoneCapture = MicrophoneCapture()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private var hasInstalledAudioTap = false
     private(set) var latestTranscript = ""
     private var partialResultHandler: ((String) -> Void)?
     private var automaticFinishHandler: ((String) -> Void)?
@@ -77,30 +80,21 @@ final class SpeechRecognitionService {
         recognitionRequest = request
         latestTranscript = ""
 
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        guard recordingFormat.sampleRate > 0, recordingFormat.channelCount > 0 else {
-            report(error: SpeechRecognitionServiceError.couldNotStartAudio)
-            return
-        }
-        inputNode.installTap(onBus: 0, bufferSize: 1_024, format: recordingFormat) { buffer, _ in
-            guard buffer.frameLength > 0 else { return }
-            request.append(buffer)
-        }
-        hasInstalledAudioTap = true
-
-        audioEngine.prepare()
-        do {
-            try audioEngine.start()
-        } catch {
-            inputNode.removeTap(onBus: 0)
-            hasInstalledAudioTap = false
-            recognitionRequest = nil
-            report(error: SpeechRecognitionServiceError.couldNotStartAudio)
-            return
-        }
-
         recognitionTask = recognizer.recognitionTask(with: request, resultHandler: receiveRecognitionResult)
+        do {
+            try await microphoneCapture.start(feeding: request)
+        } catch {
+            if let captureError = error as? MicrophoneCaptureError, captureError == .noAudioDevice {
+                report(error: SpeechRecognitionServiceError.microphoneUnavailable)
+            } else {
+                report(error: SpeechRecognitionServiceError.couldNotStartAudio)
+            }
+            return
+        }
+        guard !Task.isCancelled else {
+            cleanup()
+            return
+        }
     }
 
     @discardableResult
@@ -111,13 +105,7 @@ final class SpeechRecognitionService {
     }
 
     private func cleanup() {
-        if audioEngine.isRunning {
-            audioEngine.stop()
-        }
-        if hasInstalledAudioTap {
-            audioEngine.inputNode.removeTap(onBus: 0)
-            hasInstalledAudioTap = false
-        }
+        microphoneCapture.stop()
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionTask = nil
@@ -195,6 +183,116 @@ final class SpeechRecognitionService {
         let handler = errorHandler
         cleanup()
         handler?(error)
+    }
+}
+
+private enum MicrophoneCaptureError: Error {
+    case noAudioDevice
+    case cannotAddInput
+    case cannotAddOutput
+    case failedToStart
+}
+
+/// AVCaptureSession's start/stop calls are blocking. This helper owns them on a
+/// serial background queue and forwards native sample buffers directly to Speech.
+/// It intentionally has no UI or MainActor state.
+private nonisolated final class MicrophoneCapture: NSObject, @unchecked Sendable {
+    private let captureSession = AVCaptureSession()
+    private let sessionQueue = DispatchQueue(label: "com.familyit.microphone.session", qos: .userInitiated)
+    private let sampleBufferQueue = DispatchQueue(label: "com.familyit.microphone.samples", qos: .userInitiated)
+    private let requestBox = SpeechAudioRequestBox()
+    private var isConfigured = false
+
+    func start(feeding request: SFSpeechAudioBufferRecognitionRequest) async throws {
+        requestBox.set(request)
+
+        try await withCheckedThrowingContinuation { continuation in
+            sessionQueue.async { [self] in
+                do {
+                    try configureIfNeeded()
+                    if !captureSession.isRunning {
+                        captureSession.startRunning()
+                    }
+                    guard captureSession.isRunning else {
+                        throw MicrophoneCaptureError.failedToStart
+                    }
+                    continuation.resume()
+                } catch {
+                    requestBox.clear()
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func stop() {
+        requestBox.clear()
+        sessionQueue.async { [self] in
+            if captureSession.isRunning {
+                captureSession.stopRunning()
+            }
+        }
+    }
+
+    private func configureIfNeeded() throws {
+        guard !isConfigured else { return }
+        guard let audioDevice = AVCaptureDevice.default(for: .audio) else {
+            throw MicrophoneCaptureError.noAudioDevice
+        }
+
+        let input = try AVCaptureDeviceInput(device: audioDevice)
+        let output = AVCaptureAudioDataOutput()
+        output.setSampleBufferDelegate(self, queue: sampleBufferQueue)
+
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+
+        guard captureSession.canAddInput(input) else {
+            throw MicrophoneCaptureError.cannotAddInput
+        }
+        captureSession.addInput(input)
+
+        guard captureSession.canAddOutput(output) else {
+            throw MicrophoneCaptureError.cannotAddOutput
+        }
+        captureSession.addOutput(output)
+        isConfigured = true
+    }
+}
+
+nonisolated extension MicrophoneCapture: AVCaptureAudioDataOutputSampleBufferDelegate {
+    nonisolated func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        guard CMSampleBufferDataIsReady(sampleBuffer), CMSampleBufferGetNumSamples(sampleBuffer) > 0 else {
+            return
+        }
+        requestBox.append(sampleBuffer)
+    }
+}
+
+private nonisolated final class SpeechAudioRequestBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+
+    func set(_ request: SFSpeechAudioBufferRecognitionRequest) {
+        lock.lock()
+        self.request = request
+        lock.unlock()
+    }
+
+    func append(_ sampleBuffer: CMSampleBuffer) {
+        lock.lock()
+        request?.appendAudioSampleBuffer(sampleBuffer)
+        lock.unlock()
+    }
+
+    func clear() {
+        lock.lock()
+        request = nil
+        lock.unlock()
     }
 }
 
