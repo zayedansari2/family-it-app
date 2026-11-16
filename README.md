@@ -1,13 +1,21 @@
 # Family IT
 
-Family IT is a local, senior-friendly macOS assistant that gives calm, one-step-at-a-time help with common technology problems. This version includes scripted walkthroughs for Zoom audio, finding an app, and finding photos. It can also open an installed Mac app when asked.
+Family IT is a senior-friendly macOS assistant that uses the Codex account already signed in on the Mac to create calm, one-step-at-a-time help for everyday technology problems. It is not limited to scripted topics. It can also open an installed Mac app when asked.
 
-Everything runs on the Mac. The app has no account, database, API key, web view, or external service. Conversation history stays in memory and disappears when the app closes.
+Family IT does not store an API key, use a database, or show a web view. Each guidance request runs through the local Codex CLI in ephemeral, read-only mode. Conversation history stays in the app’s memory and disappears when the app closes. Codex still needs an internet connection and uses the OpenAI account already signed in through the CLI.
 
 ## What you need
 
 - A Mac running macOS 14 or newer
 - Xcode 16 or newer (the project was verified with Xcode 26.4.1)
+- Codex CLI installed and signed in on this Mac
+
+Check Codex before running Family IT:
+
+    codex --version
+    codex login
+
+If `codex login` says you are already signed in, no further action is needed. Family IT automatically finds Codex in `~/.local/bin`, `/opt/homebrew/bin`, or `/usr/local/bin`.
 
 ## Open and run in Xcode
 
@@ -56,12 +64,13 @@ To launch that build from Terminal:
 open /tmp/FamilyIT-DerivedData/Build/Products/Debug/FamilyIT.app
 ```
 
-## Try the scripted flow
+## Try the Codex guidance flow
 
-1. Click **I can’t hear my Zoom meeting**.
-2. Listen to the question, then press **Talk** and answer.
-3. Follow one instruction at a time and click **I did it** after each instruction.
-4. Use **I need more help**, **Repeat instruction**, or **Go back** whenever needed.
+1. Type or say a technology question, such as **How do I download Zoom?**
+2. Family IT gives one short instruction or asks one clarifying question.
+3. Complete only that instruction.
+4. Click **I did it**, or press **Talk** and say **I did it**, to receive the next step.
+5. Click **I need more help** if the instruction does not work. Codex will try a different approach using the conversation so far.
 
 To try computer control, say or type **Open Safari**, **Launch Zoom**, or **Start Photos**. Family IT recognizes common Apple and third-party apps and can also find apps by their exact installed name.
 
@@ -71,8 +80,8 @@ The Space bar is also a shortcut for the main talk button when the text field is
 
 - `FamilyIT/App` — app entry point
 - `FamilyIT/Views` — accessible SwiftUI screens and button styles
-- `FamilyIT/Services` — speech recognition, spoken replies, local app launching, and view state
-- `FamilyIT/Models` — assistant turns and the scripted troubleshooting engine
-- `FamilyIT/Resources` — permission descriptions and sandbox entitlements
+- `FamilyIT/Services` — Codex guidance, speech recognition, spoken replies, local app launching, and view state
+- `FamilyIT/Models` — assistant turns and the troubleshooting-engine boundary
+- `FamilyIT/Resources` — microphone and speech-recognition permission settings
 
-`TroubleshootingEngine` is the boundary for future assistant logic. A later local model, Codex adapter, or Mac automation adapter can replace the scripted engine without changing the screens or speech services.
+`TroubleshootingEngine` keeps the Codex integration separate from the screens and speech services. Codex is instructed to return one structured turn at a time: a question, one instruction, or completion.

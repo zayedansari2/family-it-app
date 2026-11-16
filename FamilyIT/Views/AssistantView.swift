@@ -40,6 +40,8 @@ struct AssistantView: View {
                     .buttonStyle(PrimaryActionButtonStyle())
                     .keyboardShortcut(.space, modifiers: [])
                     .accessibilityLabel(assistant.isListening ? "Stop listening" : "Talk to Family IT")
+                    .disabled(assistant.isPreparing)
+                    .opacity(assistant.isPreparing ? 0.55 : 1)
 
                     ActivityStatusView(activity: assistant.activity)
                         .frame(minHeight: 44)
@@ -53,8 +55,16 @@ struct AssistantView: View {
                     }
 
                     if turn.kind.isInstruction {
-                        Button("I did it", action: assistant.didCompleteInstruction)
-                            .buttonStyle(PrimaryActionButtonStyle())
+                        VStack(spacing: 8) {
+                            Button("I did it", action: assistant.didCompleteInstruction)
+                                .buttonStyle(PrimaryActionButtonStyle())
+                                .disabled(assistant.isPreparing)
+
+                            Text("Family IT will wait here until you are done. You can also say “I did it.”")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                 }
             }
@@ -62,15 +72,21 @@ struct AssistantView: View {
             Spacer(minLength: 8)
 
             HStack(spacing: 14) {
-                Button("I need more help", action: assistant.needsMoreHelp)
+                Button("I need more help") {
+                    assistant.needsMoreHelp()
+                }
                     .buttonStyle(SecondaryActionButtonStyle())
+                .disabled(assistant.isPreparing)
 
                 Button("Repeat instruction", action: assistant.repeatInstruction)
                     .buttonStyle(SecondaryActionButtonStyle())
+                    .disabled(assistant.isPreparing)
 
                 Button("Go back", action: assistant.goBack)
                     .buttonStyle(SecondaryActionButtonStyle())
+                    .disabled(assistant.isPreparing)
             }
+            .opacity(assistant.isPreparing ? 0.55 : 1)
         }
         .padding(32)
     }
