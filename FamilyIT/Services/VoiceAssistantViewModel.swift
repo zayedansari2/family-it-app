@@ -201,7 +201,7 @@ final class VoiceAssistantViewModel: ObservableObject {
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled, let self else { return }
 
-            let result = self.appLauncher.openApplication(named: applicationName)
+            let result = await self.appLauncher.openApplication(named: applicationName)
             let resultTurn: AssistantTurn
             switch result {
             case let .opened(displayName):
@@ -214,9 +214,9 @@ final class VoiceAssistantViewModel: ObservableObject {
                     text: "I couldn’t find an app called \(requestedName). Please tell me its exact name, and we’ll try again.",
                     kind: .question
                 )
-            case let .failed(displayName):
+            case let .failed(displayName, reason):
                 resultTurn = AssistantTurn(
-                    text: "I found \(displayName), but your Mac couldn’t open it. You can try again, or ask me for another app.",
+                    text: "I found \(displayName), but macOS wouldn’t open it. It said: \(reason) You can try again, or ask me for another app.",
                     kind: .question
                 )
             }

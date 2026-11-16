@@ -4,13 +4,13 @@ import Foundation
 enum AppLaunchResult: Equatable, Sendable {
     case opened(displayName: String)
     case notFound(requestedName: String)
-    case failed(displayName: String)
+    case failed(displayName: String, reason: String)
 }
 
 /// Boundary for local Mac actions. Future automation features can use separate
 /// implementations without coupling AppKit operations to the SwiftUI views.
 protocol AppLaunching: AnyObject {
-    func openApplication(named requestedName: String) -> AppLaunchResult
+    func openApplication(named requestedName: String) async -> AppLaunchResult
 }
 
 final class MacAppLauncher: AppLaunching {
@@ -45,17 +45,28 @@ final class MacAppLauncher: AppLaunching {
         self.fileManager = fileManager
     }
 
-    func openApplication(named requestedName: String) -> AppLaunchResult {
+    func openApplication(named requestedName: String) async -> AppLaunchResult {
         let cleanedName = Self.cleanApplicationName(requestedName)
         guard let applicationURL = findApplication(named: cleanedName) else {
             return .notFound(requestedName: cleanedName)
         }
 
         let displayName = applicationURL.deletingPathExtension().lastPathComponent
-        if workspace.open(applicationURL) {
-            return .opened(displayName: displayName)
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        configuration.addsToRecentItems = false
+        configuration.promptsUserIfNeeded = true
+
+        return await withCheckedContinuation { continuation in
+            workspace.openApplication(at: applicationURL, configuration: configuration) { @Sendable application, error in
+                if application != nil {
+                    continuation.resume(returning: .opened(displayName: displayName))
+                } else {
+                    let reason = error?.localizedDescription ?? "The Mac did not provide a reason."
+                    continuation.resume(returning: .failed(displayName: displayName, reason: reason))
+                }
+            }
         }
-        return .failed(displayName: displayName)
     }
 
     private func findApplication(named name: String) -> URL? {
