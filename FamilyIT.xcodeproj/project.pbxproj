@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* FamilyITApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* FamilyITApp.swift */; };
 		A10000000000000000000002 /* AssistantTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* AssistantTurn.swift */; };
-		A10000000000000000000003 /* ScriptedTroubleshootingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* ScriptedTroubleshootingEngine.swift */; };
+		A10000000000000000000003 /* TroubleshootingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* TroubleshootingEngine.swift */; };
 		A10000000000000000000004 /* SpeechRecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* SpeechRecognitionService.swift */; };
 		A10000000000000000000005 /* SpeechSynthesizerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* SpeechSynthesizerService.swift */; };
 		A10000000000000000000006 /* VoiceAssistantViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* VoiceAssistantViewModel.swift */; };
@@ -18,12 +18,13 @@
 		A10000000000000000000009 /* AssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* AssistantView.swift */; };
 		A1000000000000000000000A /* AccessibleStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* AccessibleStyles.swift */; };
 		A1000000000000000000000B /* MacAppLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* MacAppLauncher.swift */; };
+		A1000000000000000000000C /* CodexTroubleshootingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* CodexTroubleshootingEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A20000000000000000000001 /* FamilyITApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyITApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* AssistantTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantTurn.swift; sourceTree = "<group>"; };
-		A20000000000000000000003 /* ScriptedTroubleshootingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptedTroubleshootingEngine.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* TroubleshootingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TroubleshootingEngine.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* SpeechRecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognitionService.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* SpeechSynthesizerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSynthesizerService.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* VoiceAssistantViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAssistantViewModel.swift; sourceTree = "<group>"; };
@@ -35,6 +36,7 @@
 		A2000000000000000000000C /* FamilyIT.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FamilyIT.entitlements; sourceTree = "<group>"; };
 		A2000000000000000000000D /* FamilyIT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyIT.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000000000000000000000E /* MacAppLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacAppLauncher.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* CodexTroubleshootingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexTroubleshootingEngine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,7 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000002 /* AssistantTurn.swift */,
-				A20000000000000000000003 /* ScriptedTroubleshootingEngine.swift */,
+				A20000000000000000000003 /* TroubleshootingEngine.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -92,6 +94,7 @@
 				A20000000000000000000005 /* SpeechSynthesizerService.swift */,
 				A20000000000000000000006 /* VoiceAssistantViewModel.swift */,
 				A2000000000000000000000E /* MacAppLauncher.swift */,
+				A2000000000000000000000F /* CodexTroubleshootingEngine.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -197,7 +200,7 @@
 			files = (
 				A10000000000000000000001 /* FamilyITApp.swift in Sources */,
 				A10000000000000000000002 /* AssistantTurn.swift in Sources */,
-				A10000000000000000000003 /* ScriptedTroubleshootingEngine.swift in Sources */,
+				A10000000000000000000003 /* TroubleshootingEngine.swift in Sources */,
 				A10000000000000000000004 /* SpeechRecognitionService.swift in Sources */,
 				A10000000000000000000005 /* SpeechSynthesizerService.swift in Sources */,
 				A10000000000000000000006 /* VoiceAssistantViewModel.swift in Sources */,
@@ -206,6 +209,7 @@
 				A10000000000000000000009 /* AssistantView.swift in Sources */,
 				A1000000000000000000000A /* AccessibleStyles.swift in Sources */,
 				A1000000000000000000000B /* MacAppLauncher.swift in Sources */,
+				A1000000000000000000000C /* CodexTroubleshootingEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -323,7 +327,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FamilyIT/Resources/Info.plist;
@@ -349,7 +353,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FamilyIT/Resources/Info.plist;

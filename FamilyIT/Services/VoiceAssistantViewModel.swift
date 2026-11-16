@@ -9,9 +9,9 @@ final class VoiceAssistantViewModel: ObservableObject {
     @Published private(set) var heardText = ""
 
     let exampleProblems = [
-        "I can’t hear my Zoom meeting",
-        "I can’t find an app",
-        "I can’t find my photos",
+        "How do I download Zoom?",
+        "How do I make the text bigger?",
+        "I can’t hear my meeting",
         "Open Safari"
     ]
 
@@ -24,7 +24,7 @@ final class VoiceAssistantViewModel: ObservableObject {
     private var listeningStartTask: Task<Void, Never>?
 
     init(
-        engine: TroubleshootingEngine = ScriptedTroubleshootingEngine(),
+        engine: TroubleshootingEngine = CodexTroubleshootingEngine(),
         speechRecognition: SpeechRecognitionService = SpeechRecognitionService(),
         speechSynthesizer: SpeechSynthesizerService = SpeechSynthesizerService(),
         appLauncher: AppLaunching = MacAppLauncher()
@@ -37,6 +37,10 @@ final class VoiceAssistantViewModel: ObservableObject {
 
     var isListening: Bool {
         activity == .listening
+    }
+
+    var isPreparing: Bool {
+        activity == .preparing
     }
 
     func begin(problem: String) {
@@ -53,21 +57,38 @@ final class VoiceAssistantViewModel: ObservableObject {
             return
         }
 
-        let firstTurn = engine.start(problem: cleaned)
-        currentTurn = firstTurn
         screen = .assistant
-        speak(firstTurn)
-    }
+        currentTurn = AssistantTurn(
+            text: "I’m preparing your first step…",
+            kind: .reassurance
+        )
+        activity = .preparing
 
-    func didCompleteInstruction() {
-        prepareNextTurn { [engine] in
-            engine.advance(with: nil)
+        preparationTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let firstTurn = try await self.engine.start(problem: cleaned)
+                guard !Task.isCancelled else { return }
+                self.currentTurn = firstTurn
+                self.speak(firstTurn)
+            } catch is CancellationError {
+                return
+            } catch {
+                self.showGuidanceError(error)
+            }
         }
     }
 
-    func needsMoreHelp() {
+    func didCompleteInstruction() {
+        guard currentTurn?.kind.isInstruction == true else { return }
         prepareNextTurn { [engine] in
-            engine.provideMoreHelp()
+            try await engine.advance(with: nil)
+        }
+    }
+
+    func needsMoreHelp(context: String? = nil) {
+        prepareNextTurn { [engine] in
+            try await engine.provideMoreHelp(context: context)
         }
     }
 
@@ -79,6 +100,7 @@ final class VoiceAssistantViewModel: ObservableObject {
     func goBack() {
         if let previous = turnHistory.popLast() {
             stopAllAudio()
+            engine.rewind()
             currentTurn = previous
             speak(previous)
         } else {
@@ -149,29 +171,42 @@ final class VoiceAssistantViewModel: ObservableObject {
         if screen == .home {
             typedProblem = cleaned
             begin(problem: cleaned)
+        } else if currentTurn?.kind.isInstruction == true {
+            if Self.isCompletionConfirmation(cleaned) {
+                didCompleteInstruction()
+            } else {
+                needsMoreHelp(context: cleaned)
+            }
         } else {
             prepareNextTurn { [engine] in
-                engine.advance(with: cleaned)
+                try await engine.advance(with: cleaned)
             }
         }
     }
 
-    private func prepareNextTurn(_ makeTurn: @escaping () -> AssistantTurn) {
+    private func prepareNextTurn(_ makeTurn: @escaping () async throws -> AssistantTurn) {
         speechSynthesizer.stop()
         speechRecognition.stopAndReturnTranscript()
-        if let currentTurn {
-            turnHistory.append(currentTurn)
-        }
+        let previousTurn = currentTurn
         activity = .preparing
 
         preparationTask?.cancel()
         preparationTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled, let self else { return }
-            let nextTurn = makeTurn()
-            self.currentTurn = nextTurn
-            self.heardText = ""
-            self.speak(nextTurn)
+            guard let self else { return }
+            do {
+                let nextTurn = try await makeTurn()
+                guard !Task.isCancelled else { return }
+                if let previousTurn {
+                    self.turnHistory.append(previousTurn)
+                }
+                self.currentTurn = nextTurn
+                self.heardText = ""
+                self.speak(nextTurn)
+            } catch is CancellationError {
+                return
+            } catch {
+                self.showGuidanceError(error)
+            }
         }
     }
 
@@ -239,6 +274,32 @@ final class VoiceAssistantViewModel: ObservableObject {
         let message = (error as? LocalizedError)?.errorDescription
             ?? "I couldn’t hear that. Please try again or type your problem."
         activity = .error(message)
+    }
+
+    private func showGuidanceError(_ error: Error) {
+        let message = (error as? LocalizedError)?.errorDescription
+            ?? "I couldn’t prepare the next step. Please try again."
+        currentTurn = AssistantTurn(text: message, kind: .question)
+        activity = .error(message)
+    }
+
+    private static func isCompletionConfirmation(_ response: String) -> Bool {
+        let answer = response.lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        let negativePhrases = [
+            "not done",
+            "not finished",
+            "did not",
+            "didn't",
+            "haven't",
+            "have not",
+            "can't",
+            "cannot"
+        ]
+        guard !negativePhrases.contains(where: answer.contains) else { return false }
+
+        let confirmations = ["done", "did it", "finished", "that worked", "it worked", "completed"]
+        return confirmations.contains(where: answer.contains)
     }
 
     private func stopAllAudio() {

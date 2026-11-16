@@ -1,6 +1,6 @@
 import Foundation
 
-enum TurnKind: Equatable {
+enum TurnKind: Equatable, Sendable {
     case question
     case instruction
     case reassurance
@@ -11,7 +11,7 @@ enum TurnKind: Equatable {
     }
 }
 
-struct AssistantTurn: Identifiable, Equatable {
+struct AssistantTurn: Identifiable, Equatable, Sendable {
     let id = UUID()
     let text: String
     let kind: TurnKind
