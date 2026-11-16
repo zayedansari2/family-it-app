@@ -11,23 +11,27 @@ final class VoiceAssistantViewModel: ObservableObject {
     let exampleProblems = [
         "I can’t hear my Zoom meeting",
         "I can’t find an app",
-        "I can’t find my photos"
+        "I can’t find my photos",
+        "Open Safari"
     ]
 
     private let engine: TroubleshootingEngine
     private let speechRecognition: SpeechRecognitionService
     private let speechSynthesizer: SpeechSynthesizerService
+    private let appLauncher: AppLaunching
     private var turnHistory: [AssistantTurn] = []
     private var preparationTask: Task<Void, Never>?
 
     init(
         engine: TroubleshootingEngine = ScriptedTroubleshootingEngine(),
         speechRecognition: SpeechRecognitionService = SpeechRecognitionService(),
-        speechSynthesizer: SpeechSynthesizerService = SpeechSynthesizerService()
+        speechSynthesizer: SpeechSynthesizerService = SpeechSynthesizerService(),
+        appLauncher: AppLaunching = MacAppLauncher()
     ) {
         self.engine = engine
         self.speechRecognition = speechRecognition
         self.speechSynthesizer = speechSynthesizer
+        self.appLauncher = appLauncher
     }
 
     var isListening: Bool {
@@ -42,6 +46,12 @@ final class VoiceAssistantViewModel: ObservableObject {
         typedProblem = cleaned
         heardText = ""
         turnHistory = []
+
+        if let applicationName = OpenAppRequestParser.applicationName(from: cleaned) {
+            openApplication(named: applicationName)
+            return
+        }
+
         let firstTurn = engine.start(problem: cleaned)
         currentTurn = firstTurn
         screen = .assistant
@@ -123,6 +133,11 @@ final class VoiceAssistantViewModel: ObservableObject {
         let cleaned = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
 
+        if let applicationName = OpenAppRequestParser.applicationName(from: cleaned) {
+            openApplication(named: applicationName)
+            return
+        }
+
         if screen == .home {
             typedProblem = cleaned
             begin(problem: cleaned)
@@ -149,6 +164,57 @@ final class VoiceAssistantViewModel: ObservableObject {
             self.currentTurn = nextTurn
             self.heardText = ""
             self.speak(nextTurn)
+        }
+    }
+
+    private func openApplication(named applicationName: String) {
+        stopAllAudio()
+        engine.reset()
+        turnHistory = []
+        heardText = ""
+        screen = .assistant
+
+        let introduction = AssistantTurn(
+            text: "Okay. I’ll open \(applicationName) for you now.",
+            kind: .reassurance
+        )
+        currentTurn = introduction
+        activity = .speaking
+
+        speechSynthesizer.speak(introduction.text) { [weak self] in
+            self?.performApplicationLaunch(named: applicationName)
+        }
+    }
+
+    private func performApplicationLaunch(named applicationName: String) {
+        activity = .preparing
+        preparationTask?.cancel()
+        preparationTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled, let self else { return }
+
+            let result = self.appLauncher.openApplication(named: applicationName)
+            let resultTurn: AssistantTurn
+            switch result {
+            case let .opened(displayName):
+                resultTurn = AssistantTurn(
+                    text: "\(displayName) is open. You can use it now.",
+                    kind: .completion
+                )
+            case let .notFound(requestedName):
+                resultTurn = AssistantTurn(
+                    text: "I couldn’t find an app called \(requestedName). Please tell me its exact name, and we’ll try again.",
+                    kind: .question
+                )
+            case let .failed(displayName):
+                resultTurn = AssistantTurn(
+                    text: "I found \(displayName), but your Mac couldn’t open it. You can try again, or ask me for another app.",
+                    kind: .question
+                )
+            }
+
+            self.currentTurn = resultTurn
+            self.speak(resultTurn)
         }
     }
 

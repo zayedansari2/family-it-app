@@ -77,7 +77,13 @@ struct HomeView: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
 
-                HStack(spacing: 12) {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 12),
+                        GridItem(.flexible(), spacing: 12)
+                    ],
+                    spacing: 12
+                ) {
                     ForEach(assistant.exampleProblems, id: \.self) { problem in
                         Button(problem) {
                             assistant.begin(problem: problem)

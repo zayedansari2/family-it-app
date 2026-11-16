@@ -1,6 +1,6 @@
 # Family IT
 
-Family IT is a local, senior-friendly macOS assistant that gives calm, one-step-at-a-time help with common technology problems. This first version includes scripted walkthroughs for Zoom audio, finding an app, and finding photos.
+Family IT is a local, senior-friendly macOS assistant that gives calm, one-step-at-a-time help with common technology problems. This version includes scripted walkthroughs for Zoom audio, finding an app, and finding photos. It can also open an installed Mac app when asked.
 
 Everything runs on the Mac. The app has no account, database, API key, web view, or external service. Conversation history stays in memory and disappears when the app closes.
 
@@ -63,13 +63,15 @@ open /tmp/FamilyIT-DerivedData/Build/Products/Debug/FamilyIT.app
 3. Follow one instruction at a time and click **I did it** after each instruction.
 4. Use **I need more help**, **Repeat instruction**, or **Go back** whenever needed.
 
+To try computer control, say or type **Open Safari**, **Launch Zoom**, or **Start Photos**. Family IT recognizes common Apple and third-party apps and can also find apps by their exact installed name.
+
 The Space bar is also a shortcut for the main talk button when the text field is not being edited.
 
 ## Project layout
 
 - `FamilyIT/App` — app entry point
 - `FamilyIT/Views` — accessible SwiftUI screens and button styles
-- `FamilyIT/Services` — speech recognition, spoken replies, and view state
+- `FamilyIT/Services` — speech recognition, spoken replies, local app launching, and view state
 - `FamilyIT/Models` — assistant turns and the scripted troubleshooting engine
 - `FamilyIT/Resources` — permission descriptions and sandbox entitlements
 
