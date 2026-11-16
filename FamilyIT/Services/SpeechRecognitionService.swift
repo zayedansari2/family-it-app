@@ -7,6 +7,7 @@ enum SpeechRecognitionServiceError: LocalizedError {
     case speechRecognitionDenied
     case recognizerUnavailable
     case couldNotStartAudio
+    case recognitionFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,8 @@ enum SpeechRecognitionServiceError: LocalizedError {
             "Speech recognition is not available right now. You can type your problem instead."
         case .couldNotStartAudio:
             "I couldn’t start the microphone. You can type your problem instead."
+        case let .recognitionFailed(message):
+            "I couldn’t understand the recording. \(message) Please try again or type your problem."
         }
     }
 }
@@ -30,6 +33,9 @@ final class SpeechRecognitionService {
     private var recognitionTask: SFSpeechRecognitionTask?
     private var hasInstalledAudioTap = false
     private(set) var latestTranscript = ""
+    private var partialResultHandler: ((String) -> Void)?
+    private var automaticFinishHandler: ((String) -> Void)?
+    private var errorHandler: ((Error) -> Void)?
 
     func start(
         onPartialResult: @escaping (String) -> Void,
@@ -37,17 +43,31 @@ final class SpeechRecognitionService {
         onError: @escaping (Error) -> Void
     ) async {
         stopAndReturnTranscript()
+        partialResultHandler = onPartialResult
+        automaticFinishHandler = onAutomaticFinish
+        errorHandler = onError
 
-        guard await hasMicrophonePermission() else {
-            onError(SpeechRecognitionServiceError.microphoneDenied)
+        let microphoneAllowed = await hasMicrophonePermission()
+        guard !Task.isCancelled else {
+            cleanup()
             return
         }
-        guard await hasSpeechRecognitionPermission() else {
-            onError(SpeechRecognitionServiceError.speechRecognitionDenied)
+        guard microphoneAllowed else {
+            report(error: SpeechRecognitionServiceError.microphoneDenied)
+            return
+        }
+
+        let speechRecognitionAllowed = await hasSpeechRecognitionPermission()
+        guard !Task.isCancelled else {
+            cleanup()
+            return
+        }
+        guard speechRecognitionAllowed else {
+            report(error: SpeechRecognitionServiceError.speechRecognitionDenied)
             return
         }
         guard let recognizer, recognizer.isAvailable else {
-            onError(SpeechRecognitionServiceError.recognizerUnavailable)
+            report(error: SpeechRecognitionServiceError.recognizerUnavailable)
             return
         }
 
@@ -59,7 +79,12 @@ final class SpeechRecognitionService {
 
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
+        guard recordingFormat.sampleRate > 0, recordingFormat.channelCount > 0 else {
+            report(error: SpeechRecognitionServiceError.couldNotStartAudio)
+            return
+        }
         inputNode.installTap(onBus: 0, bufferSize: 1_024, format: recordingFormat) { buffer, _ in
+            guard buffer.frameLength > 0 else { return }
             request.append(buffer)
         }
         hasInstalledAudioTap = true
@@ -71,27 +96,11 @@ final class SpeechRecognitionService {
             inputNode.removeTap(onBus: 0)
             hasInstalledAudioTap = false
             recognitionRequest = nil
-            onError(SpeechRecognitionServiceError.couldNotStartAudio)
+            report(error: SpeechRecognitionServiceError.couldNotStartAudio)
             return
         }
 
-        recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            Task { @MainActor in
-                guard let self else { return }
-                if let result {
-                    let transcript = result.bestTranscription.formattedString
-                    self.latestTranscript = transcript
-                    onPartialResult(transcript)
-                    if result.isFinal {
-                        self.cleanup()
-                        onAutomaticFinish(transcript)
-                    }
-                } else if let error {
-                    self.cleanup()
-                    onError(error)
-                }
-            }
-        }
+        recognitionTask = recognizer.recognitionTask(with: request, resultHandler: receiveRecognitionResult)
     }
 
     @discardableResult
@@ -113,6 +122,9 @@ final class SpeechRecognitionService {
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil
+        partialResultHandler = nil
+        automaticFinishHandler = nil
+        errorHandler = nil
     }
 
     private func hasMicrophonePermission() async -> Bool {
@@ -131,11 +143,58 @@ final class SpeechRecognitionService {
         if status == .authorized { return true }
         if status != .notDetermined { return false }
 
-        return await withCheckedContinuation { continuation in
+        return await Self.requestSpeechRecognitionPermission()
+    }
+
+    private nonisolated static func requestSpeechRecognitionPermission() async -> Bool {
+        await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { newStatus in
                 continuation.resume(returning: newStatus == .authorized)
             }
         }
+    }
+
+    private nonisolated func receiveRecognitionResult(
+        _ result: SFSpeechRecognitionResult?,
+        error: Error?
+    ) {
+        let transcript = result?.bestTranscription.formattedString
+        let isFinal = result?.isFinal ?? false
+        let errorMessage = error?.localizedDescription
+
+        Task { @MainActor [weak self] in
+            self?.handleRecognitionResult(
+                transcript: transcript,
+                isFinal: isFinal,
+                errorMessage: errorMessage
+            )
+        }
+    }
+
+    private func handleRecognitionResult(
+        transcript: String?,
+        isFinal: Bool,
+        errorMessage: String?
+    ) {
+        guard recognitionRequest != nil else { return }
+
+        if let transcript {
+            latestTranscript = transcript
+            partialResultHandler?(transcript)
+            if isFinal {
+                let finishHandler = automaticFinishHandler
+                cleanup()
+                finishHandler?(transcript)
+            }
+        } else if let errorMessage {
+            report(error: SpeechRecognitionServiceError.recognitionFailed(errorMessage))
+        }
+    }
+
+    private func report(error: Error) {
+        let handler = errorHandler
+        cleanup()
+        handler?(error)
     }
 }
 

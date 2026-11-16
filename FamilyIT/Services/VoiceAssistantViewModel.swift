@@ -21,6 +21,7 @@ final class VoiceAssistantViewModel: ObservableObject {
     private let appLauncher: AppLaunching
     private var turnHistory: [AssistantTurn] = []
     private var preparationTask: Task<Void, Never>?
+    private var listeningStartTask: Task<Void, Never>?
 
     init(
         engine: TroubleshootingEngine = ScriptedTroubleshootingEngine(),
@@ -98,6 +99,8 @@ final class VoiceAssistantViewModel: ObservableObject {
 
     func toggleListening() {
         if isListening {
+            listeningStartTask?.cancel()
+            listeningStartTask = nil
             let transcript = speechRecognition.stopAndReturnTranscript()
             finishListening(with: transcript)
             return
@@ -108,7 +111,8 @@ final class VoiceAssistantViewModel: ObservableObject {
         heardText = ""
         activity = .listening
 
-        Task {
+        listeningStartTask = Task { [weak self] in
+            guard let self else { return }
             await speechRecognition.start(
                 onPartialResult: { [weak self] transcript in
                     guard let self, self.isListening else { return }
@@ -124,11 +128,15 @@ final class VoiceAssistantViewModel: ObservableObject {
                     self?.show(error: error)
                 }
             )
+            if !Task.isCancelled {
+                self.listeningStartTask = nil
+            }
         }
     }
 
     private func finishListening(with transcript: String) {
         guard isListening else { return }
+        listeningStartTask = nil
         activity = .idle
         let cleaned = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
@@ -234,6 +242,8 @@ final class VoiceAssistantViewModel: ObservableObject {
     }
 
     private func stopAllAudio() {
+        listeningStartTask?.cancel()
+        listeningStartTask = nil
         preparationTask?.cancel()
         preparationTask = nil
         speechRecognition.stopAndReturnTranscript()
