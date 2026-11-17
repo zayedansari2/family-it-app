@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        B10000000000000000000004 = {isa = PBXBuildFile; fileRef = B20000000000000000000004; };
+        B10000000000000000000001 = {isa = PBXBuildFile; fileRef = B20000000000000000000001; };
+        B10000000000000000000002 = {isa = PBXBuildFile; fileRef = B20000000000000000000002; };
+        B10000000000000000000003 = {isa = PBXBuildFile; fileRef = B20000000000000000000003; };
 		A10000000000000000000001 /* FamilyITApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* FamilyITApp.swift */; };
 		A10000000000000000000002 /* AssistantTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* AssistantTurn.swift */; };
 		A10000000000000000000003 /* TroubleshootingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* TroubleshootingEngine.swift */; };
@@ -22,6 +26,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        B20000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+        B20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/ComputerAction.swift; sourceTree = "<group>"; };
+        B20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/SafeComputerExecutor.swift; sourceTree = "<group>"; };
+        B20000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SupportView.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* FamilyITApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyITApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* AssistantTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantTurn.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* TroubleshootingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TroubleshootingEngine.swift; sourceTree = "<group>"; };
@@ -61,6 +69,9 @@
 		A40000000000000000000002 /* FamilyIT */ = {
 			isa = PBXGroup;
 			children = (
+                B20000000000000000000001,
+                B20000000000000000000002,
+                B20000000000000000000003,
 				A40000000000000000000003 /* App */,
 				A40000000000000000000004 /* Models */,
 				A40000000000000000000005 /* Services */,
@@ -113,6 +124,7 @@
 		A40000000000000000000007 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+                B20000000000000000000004,
 				A2000000000000000000000B /* Info.plist */,
 				A2000000000000000000000C /* FamilyIT.entitlements */,
 			);
@@ -188,6 +200,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                B10000000000000000000004,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -198,6 +211,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                B10000000000000000000001,
+                B10000000000000000000002,
+                B10000000000000000000003,
 				A10000000000000000000001 /* FamilyITApp.swift in Sources */,
 				A10000000000000000000002 /* AssistantTurn.swift in Sources */,
 				A10000000000000000000003 /* TroubleshootingEngine.swift in Sources */,

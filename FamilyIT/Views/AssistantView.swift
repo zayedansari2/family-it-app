@@ -2,93 +2,82 @@ import SwiftUI
 
 struct AssistantView: View {
     @EnvironmentObject private var assistant: VoiceAssistantViewModel
-
+    @AppStorage("largerText") private var largerText = false
     var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Label("Family IT", systemImage: "person.2.wave.2.fill")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(FamilyITColors.brand)
-                Spacer()
-                Button("Start over", action: assistant.returnHome)
-                    .font(.title3.weight(.semibold))
-            }
-
-            Spacer(minLength: 8)
-
-            if let turn = assistant.currentTurn {
-                VStack(spacing: 26) {
-                    Text(turn.text)
-                        .font(.system(size: 36, weight: .semibold, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(8)
-                        .frame(maxWidth: 820, minHeight: 210)
-                        .padding(36)
-                        .background(.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .stroke(FamilyITColors.brand.opacity(0.28), lineWidth: 2)
-                        }
-                        .accessibilityAddTraits(.isHeader)
-
-                    Button(action: assistant.toggleListening) {
-                        Label(
-                            assistant.isListening ? "Tap when finished" : "Talk",
-                            systemImage: assistant.isListening ? "stop.fill" : "mic.fill"
-                        )
-                    }
-                    .buttonStyle(PrimaryActionButtonStyle())
-                    .keyboardShortcut(.space, modifiers: [])
-                    .accessibilityLabel(assistant.isListening ? "Stop listening" : "Talk to Family IT")
-                    .disabled(assistant.isPreparing)
-                    .opacity(assistant.isPreparing ? 0.55 : 1)
-
-                    ActivityStatusView(activity: assistant.activity)
-                        .frame(minHeight: 44)
-
-                    if assistant.isListening, !assistant.heardText.isEmpty {
-                        Text("I heard: “\(assistant.heardText)”")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                    }
-
-                    if turn.kind.isInstruction {
-                        VStack(spacing: 8) {
-                            Button("I did it", action: assistant.didCompleteInstruction)
-                                .buttonStyle(PrimaryActionButtonStyle())
-                                .disabled(assistant.isPreparing)
-
-                            Text("Family IT will wait here until you are done. You can also say “I did it.”")
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                }
-            }
-
-            Spacer(minLength: 8)
-
-            HStack(spacing: 14) {
-                Button("I need more help") {
-                    assistant.needsMoreHelp()
-                }
-                    .buttonStyle(SecondaryActionButtonStyle())
-                .disabled(assistant.isPreparing)
-
-                Button("Repeat instruction", action: assistant.repeatInstruction)
-                    .buttonStyle(SecondaryActionButtonStyle())
-                    .disabled(assistant.isPreparing)
-
-                Button("Go back", action: assistant.goBack)
-                    .buttonStyle(SecondaryActionButtonStyle())
-                    .disabled(assistant.isPreparing)
-            }
-            .opacity(assistant.isPreparing ? 0.55 : 1)
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView { content } // Small windows / larger text only; never a transcript.
         }
-        .padding(32)
+    }
+    private var content: some View {
+        VStack(spacing: 18) {
+            HStack {
+                Text("Take your time.").foregroundStyle(FamilyITColors.muted)
+                Spacer()
+                Button("Start a new question", action: assistant.returnHome)
+            }
+            Spacer(minLength: 0)
+            if let turn = assistant.currentTurn {
+                Text(turn.kind == .question ? "TELL ME WHAT YOU SEE" : "ONE STEP AT A TIME")
+                    .font(.caption.weight(.semibold)).tracking(2).foregroundStyle(FamilyITColors.accent)
+                Text(turn.text)
+                    .font(.system(size: largerText ? 38 : 30, weight: .medium))
+                    .multilineTextAlignment(.center).lineSpacing(5)
+                    .frame(maxWidth: 800, minHeight: 100)
+                    .accessibilityAddTraits(.isHeader)
+                Button(action: assistant.toggleListening) {
+                    Label(assistant.isListening ? "Stop listening" : "Tap to talk",
+                          systemImage: assistant.isListening ? "stop.fill" : "mic.fill")
+                }
+                .buttonStyle(PrimaryActionButtonStyle())
+                .disabled(assistant.isPreparing || assistant.hasPendingAction)
+                .keyboardShortcut(.space, modifiers: [])
+                if !assistant.heardText.isEmpty {
+                    Text("I heard: \(assistant.heardText)").font(.body).lineLimit(2)
+                }
+                ActivityStatusView(activity: assistant.activity)
+                if assistant.isPreparing {
+                    Button("Cancel response", action: assistant.cancel).keyboardShortcut(.cancelAction)
+                }
+                if assistant.canRetry { Button("Try again", action: assistant.retry).buttonStyle(SecondaryActionButtonStyle()) }
+                if let action = assistant.pendingAction {
+                    VStack(spacing: 12) {
+                        Text(action.description).font(.title3.weight(.medium)).multilineTextAlignment(.center)
+                        HStack {
+                            Button("Continue", action: assistant.confirmAction).buttonStyle(PrimaryActionButtonStyle())
+                            Button("Cancel", action: assistant.cancelAction).buttonStyle(SecondaryActionButtonStyle())
+                        }
+                    }
+                    .padding(16).frame(maxWidth: 760)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 8))
+                    .accessibilityElement(children: .contain)
+                } else if turn.kind == .instruction {
+                    Button("I did it", action: assistant.didCompleteInstruction)
+                        .buttonStyle(PrimaryActionButtonStyle()).disabled(assistant.isPreparing)
+                    Text("We’ll wait here until you are done.").font(.callout).foregroundStyle(FamilyITColors.muted)
+                }
+                HStack {
+                    TextField("Or type your answer", text: $assistant.typedReply)
+                        .textFieldStyle(.roundedBorder).font(.title3).onSubmit(assistant.submitReply)
+                        .accessibilityLabel("Type your answer")
+                    Button("Send", action: assistant.submitReply)
+                        .buttonStyle(SecondaryActionButtonStyle())
+                        .disabled(assistant.typedReply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                  assistant.isPreparing || assistant.hasPendingAction)
+                }.frame(maxWidth: 760)
+            }
+            Spacer(minLength: 0)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { assistanceButtons }
+                VStack(spacing: 10) { assistanceButtons }
+            }
+            .disabled(assistant.isPreparing || assistant.hasPendingAction)
+        }
+        .padding(.horizontal, 32).padding(.vertical, 20)
+    }
+    @ViewBuilder private var assistanceButtons: some View {
+        Button("That didn’t work") { assistant.needsMoreHelp() }.buttonStyle(SecondaryActionButtonStyle())
+        Button("Explain that differently", action: assistant.explainDifferently).buttonStyle(SecondaryActionButtonStyle())
+        Button("Read again", action: assistant.repeatInstruction).buttonStyle(SecondaryActionButtonStyle())
     }
 }
-

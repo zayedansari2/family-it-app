@@ -1,314 +1,176 @@
 import Foundation
 
-@MainActor
-final class VoiceAssistantViewModel: ObservableObject {
+@MainActor final class VoiceAssistantViewModel: ObservableObject {
     @Published var screen: AppScreen = .home
     @Published var typedProblem = ""
+    @Published var typedReply = ""
     @Published private(set) var currentTurn: AssistantTurn?
     @Published private(set) var activity: AssistantActivity = .idle
     @Published private(set) var heardText = ""
-
-    let exampleProblems = [
-        "How do I download Zoom?",
-        "How do I make the text bigger?",
-        "I can’t hear my meeting",
-        "Open Safari"
-    ]
-
+    @Published private(set) var backendLabel = ""
+    @Published private(set) var pendingAction: ComputerAction?
+    @Published private(set) var actionLog: [String] = []
+    @Published private(set) var canRetry = false
+    let exampleProblems = ["I can’t hear my Zoom meeting", "I can’t find an app", "I can’t find my photos"]
     private let engine: TroubleshootingEngine
-    private let speechRecognition: SpeechRecognitionService
-    private let speechSynthesizer: SpeechSynthesizerService
-    private let appLauncher: AppLaunching
-    private var turnHistory: [AssistantTurn] = []
-    private var preparationTask: Task<Void, Never>?
-    private var listeningStartTask: Task<Void, Never>?
+    private let recognition = SpeechRecognitionService()
+    private let voice = SpeechSynthesizerService()
+    private let executor = SafeComputerExecutor()
+    private var task: Task<Void, Never>?
+    private var listenTask: Task<Void, Never>?
+    private var retryOperation: (() async throws -> AssistantTurn)?
+    private var ticket = UUID()
 
-    init(
-        engine: TroubleshootingEngine = CodexTroubleshootingEngine(),
-        speechRecognition: SpeechRecognitionService = SpeechRecognitionService(),
-        speechSynthesizer: SpeechSynthesizerService = SpeechSynthesizerService(),
-        appLauncher: AppLaunching = MacAppLauncher()
-    ) {
-        self.engine = engine
-        self.speechRecognition = speechRecognition
-        self.speechSynthesizer = speechSynthesizer
-        self.appLauncher = appLauncher
-    }
-
-    var isListening: Bool {
-        activity == .listening
-    }
-
-    var isPreparing: Bool {
-        activity == .preparing
-    }
+    init(engine: TroubleshootingEngine = CodexTroubleshootingEngine()) { self.engine = engine }
+    var isListening: Bool { activity == .listening }
+    var isPreparing: Bool { activity == .preparing }
+    var hasPendingAction: Bool { pendingAction != nil }
 
     func begin(problem: String) {
         let cleaned = problem.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
-
-        stopAllAudio()
+        stop()
+        engine.reset()
         typedProblem = cleaned
-        heardText = ""
-        turnHistory = []
-
-        if let applicationName = OpenAppRequestParser.applicationName(from: cleaned) {
-            openApplication(named: applicationName)
-            return
-        }
-
+        typedReply = ""
         screen = .assistant
-        currentTurn = AssistantTurn(
-            text: "I’m preparing your first step…",
-            kind: .reassurance
-        )
-        activity = .preparing
-
-        preparationTask = Task { [weak self] in
+        currentTurn = AssistantTurn(text: "Take your time. I’m preparing your first response.", kind: .reassurance)
+        request { [engine] in try await engine.start(problem: cleaned) }
+    }
+    func submitReply() {
+        let reply = typedReply.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !reply.isEmpty else { return }
+        typedReply = ""
+        receive(reply)
+    }
+    func didCompleteInstruction() {
+        guard !isPreparing, pendingAction == nil, currentTurn?.kind == .instruction else { return }
+        request { [engine] in try await engine.advance(with: nil) }
+    }
+    func needsMoreHelp(context: String? = nil) {
+        pendingAction = nil
+        request { [engine] in try await engine.provideMoreHelp(context: context ?? "That didn’t work. Try a different approach.") }
+    }
+    func explainDifferently() { needsMoreHelp(context: "Explain that differently. I have not completed the step.") }
+    func repeatInstruction() { if let turn = currentTurn { speak(turn) } }
+    func retry() { if let retryOperation { request(retryOperation) } }
+    func cancel() {
+        stop()
+        pendingAction = nil
+        activity = .idle
+        canRetry = retryOperation != nil
+    }
+    func returnHome() {
+        stop(); engine.reset()
+        pendingAction = nil; currentTurn = nil; typedProblem = ""; typedReply = ""; heardText = ""
+        backendLabel = ""; actionLog = []; retryOperation = nil; canRetry = false
+        activity = .idle; screen = .home
+    }
+    func propose(_ action: ComputerAction) {
+        guard !isPreparing else { return }
+        voice.stop()
+        do {
+            pendingAction = try action.validated()
+            screen = .assistant
+            currentTurn = AssistantTurn(text: "Review this request before continuing.", kind: .instruction)
+            activity = .idle
+        }
+        catch { show(error) }
+    }
+    func cancelAction() {
+        pendingAction = nil
+        engine.recordActionOutcome(succeeded: false)
+        currentTurn = AssistantTurn(text: "The action was cancelled. Nothing was changed. Tell me what you see.", kind: .question)
+        activity = .idle
+    }
+    func confirmAction() {
+        guard let action = pendingAction else { return }
+        pendingAction = nil; voice.stop(); activity = .preparing
+        let currentTicket = ticket
+        task = Task { [weak self] in
             guard let self else { return }
             do {
-                let firstTurn = try await self.engine.start(problem: cleaned)
-                guard !Task.isCancelled else { return }
-                self.currentTurn = firstTurn
-                self.speak(firstTurn)
-            } catch is CancellationError {
-                return
+                let result = try await executor.execute(action)
+                guard !Task.isCancelled, currentTicket == ticket else { return }
+                actionLog.append(action.safeLogDescription)
+                engine.recordActionOutcome(succeeded: true)
+                // Accessibility content deliberately stays out of the backend conversation.
+                currentTurn = AssistantTurn(text: result, kind: .question)
+                speak(currentTurn!)
             } catch {
-                self.showGuidanceError(error)
+                if currentTicket == ticket {
+                    engine.recordActionOutcome(succeeded: false)
+                    show(error)
+                    pendingAction = action
+                }
             }
         }
     }
-
-    func didCompleteInstruction() {
-        guard currentTurn?.kind.isInstruction == true else { return }
-        prepareNextTurn { [engine] in
-            try await engine.advance(with: nil)
+    private func receive(_ text: String) {
+        guard !isPreparing, pendingAction == nil else { return }
+        if screen == .home { begin(problem: text); return }
+        if currentTurn?.kind == .instruction {
+            if ConversationInput.confirmsCompletion(text) { didCompleteInstruction() }
+            else { needsMoreHelp(context: text) }
+        } else { request { [engine] in try await engine.advance(with: text) } }
+    }
+    private func request(_ operation: @escaping () async throws -> AssistantTurn) {
+        stop()
+        let currentTicket = ticket
+        pendingAction = nil; heardText = ""; retryOperation = operation
+        canRetry = false; activity = .preparing
+        task = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let turn = try await operation()
+                guard !Task.isCancelled, currentTicket == ticket else { return }
+                backendLabel = engine.backendLabel
+                currentTurn = turn
+                pendingAction = turn.action
+                speak(turn)
+            } catch is CancellationError { }
+            catch { if currentTicket == ticket, !Task.isCancelled { show(error); canRetry = true } }
         }
     }
-
-    func needsMoreHelp(context: String? = nil) {
-        prepareNextTurn { [engine] in
-            try await engine.provideMoreHelp(context: context)
-        }
-    }
-
-    func repeatInstruction() {
-        guard let currentTurn else { return }
-        speak(currentTurn)
-    }
-
-    func goBack() {
-        if let previous = turnHistory.popLast() {
-            stopAllAudio()
-            engine.rewind()
-            currentTurn = previous
-            speak(previous)
-        } else {
-            returnHome()
-        }
-    }
-
-    func returnHome() {
-        stopAllAudio()
-        engine.reset()
-        turnHistory = []
-        currentTurn = nil
-        heardText = ""
-        typedProblem = ""
-        screen = .home
-        activity = .idle
-    }
-
     func toggleListening() {
         if isListening {
-            listeningStartTask?.cancel()
-            listeningStartTask = nil
-            let transcript = speechRecognition.stopAndReturnTranscript()
-            finishListening(with: transcript)
+            listenTask?.cancel()
+            let text = recognition.stopAndReturnTranscript()
+            activity = .idle
+            receive(text)
             return
         }
-
-        speechSynthesizer.stop()
-        preparationTask?.cancel()
-        heardText = ""
-        activity = .listening
-
-        listeningStartTask = Task { [weak self] in
+        guard !isPreparing, pendingAction == nil else { return }
+        voice.stop(); activity = .listening; heardText = ""
+        listenTask = Task { [weak self] in
             guard let self else { return }
-            await speechRecognition.start(
-                onPartialResult: { [weak self] transcript in
-                    guard let self, self.isListening else { return }
-                    self.heardText = transcript
-                    if self.screen == .home {
-                        self.typedProblem = transcript
-                    }
-                },
-                onAutomaticFinish: { [weak self] transcript in
-                    self?.finishListening(with: transcript)
-                },
-                onError: { [weak self] error in
-                    self?.show(error: error)
-                }
-            )
-            if !Task.isCancelled {
-                self.listeningStartTask = nil
-            }
+            await recognition.start(onPartialResult: { [weak self] text in
+                guard let self, isListening else { return }
+                heardText = text
+                if screen == .home { typedProblem = text }
+            }, onAutomaticFinish: { [weak self] text in
+                guard let self, isListening else { return }
+                activity = .idle; receive(text)
+            }, onError: { [weak self] error in self?.show(error) })
         }
     }
-
-    private func finishListening(with transcript: String) {
-        guard isListening else { return }
-        listeningStartTask = nil
-        activity = .idle
-        let cleaned = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty else { return }
-
-        if let applicationName = OpenAppRequestParser.applicationName(from: cleaned) {
-            openApplication(named: applicationName)
-            return
-        }
-
-        if screen == .home {
-            typedProblem = cleaned
-            begin(problem: cleaned)
-        } else if currentTurn?.kind.isInstruction == true {
-            if Self.isCompletionConfirmation(cleaned) {
-                didCompleteInstruction()
-            } else {
-                needsMoreHelp(context: cleaned)
-            }
-        } else {
-            prepareNextTurn { [engine] in
-                try await engine.advance(with: cleaned)
-            }
-        }
-    }
-
-    private func prepareNextTurn(_ makeTurn: @escaping () async throws -> AssistantTurn) {
-        speechSynthesizer.stop()
-        speechRecognition.stopAndReturnTranscript()
-        let previousTurn = currentTurn
-        activity = .preparing
-
-        preparationTask?.cancel()
-        preparationTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let nextTurn = try await makeTurn()
-                guard !Task.isCancelled else { return }
-                if let previousTurn {
-                    self.turnHistory.append(previousTurn)
-                }
-                self.currentTurn = nextTurn
-                self.heardText = ""
-                self.speak(nextTurn)
-            } catch is CancellationError {
-                return
-            } catch {
-                self.showGuidanceError(error)
-            }
-        }
-    }
-
-    private func openApplication(named applicationName: String) {
-        stopAllAudio()
-        engine.reset()
-        turnHistory = []
-        heardText = ""
-        screen = .assistant
-
-        let introduction = AssistantTurn(
-            text: "Okay. I’ll open \(applicationName) for you now.",
-            kind: .reassurance
-        )
-        currentTurn = introduction
-        activity = .speaking
-
-        speechSynthesizer.speak(introduction.text) { [weak self] in
-            self?.performApplicationLaunch(named: applicationName)
-        }
-    }
-
-    private func performApplicationLaunch(named applicationName: String) {
-        activity = .preparing
-        preparationTask?.cancel()
-        preparationTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(350))
-            guard !Task.isCancelled, let self else { return }
-
-            let result = await self.appLauncher.openApplication(named: applicationName)
-            let resultTurn: AssistantTurn
-            switch result {
-            case let .opened(displayName):
-                resultTurn = AssistantTurn(
-                    text: "\(displayName) is open. You can use it now.",
-                    kind: .completion
-                )
-            case let .notFound(requestedName):
-                resultTurn = AssistantTurn(
-                    text: "I couldn’t find an app called \(requestedName). Please tell me its exact name, and we’ll try again.",
-                    kind: .question
-                )
-            case let .failed(displayName, reason):
-                resultTurn = AssistantTurn(
-                    text: "I found \(displayName), but macOS wouldn’t open it. It said: \(reason) You can try again, or ask me for another app.",
-                    kind: .question
-                )
-            }
-
-            self.currentTurn = resultTurn
-            self.speak(resultTurn)
-        }
-    }
-
     private func speak(_ turn: AssistantTurn) {
         activity = .speaking
-        speechSynthesizer.speak(turn.text) { [weak self] in
-            guard let self, self.activity == .speaking else { return }
-            self.activity = .idle
+        voice.speak(turn.text) { [weak self] in
+            if self?.activity == .speaking { self?.activity = .idle }
         }
     }
-
-    private func show(error: Error) {
-        speechRecognition.stopAndReturnTranscript()
-        let message = (error as? LocalizedError)?.errorDescription
-            ?? "I couldn’t hear that. Please try again or type your problem."
+    private func show(_ error: Error) {
+        recognition.stopAndReturnTranscript()
+        let message = (error as? GuidanceError)?.errorDescription
+            ?? (error as? SpeechRecognitionServiceError)?.errorDescription
+            ?? "The response could not be prepared. Please try again."
         activity = .error(message)
     }
-
-    private func showGuidanceError(_ error: Error) {
-        let message = (error as? LocalizedError)?.errorDescription
-            ?? "I couldn’t prepare the next step. Please try again."
-        currentTurn = AssistantTurn(text: message, kind: .question)
-        activity = .error(message)
-    }
-
-    private static func isCompletionConfirmation(_ response: String) -> Bool {
-        let answer = response.lowercased()
-            .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-        let negativePhrases = [
-            "not done",
-            "not finished",
-            "did not",
-            "didn't",
-            "haven't",
-            "have not",
-            "can't",
-            "cannot"
-        ]
-        guard !negativePhrases.contains(where: answer.contains) else { return false }
-
-        let confirmations = ["done", "did it", "finished", "that worked", "it worked", "completed"]
-        return confirmations.contains(where: answer.contains)
-    }
-
-    private func stopAllAudio() {
-        listeningStartTask?.cancel()
-        listeningStartTask = nil
-        preparationTask?.cancel()
-        preparationTask = nil
-        speechRecognition.stopAndReturnTranscript()
-        speechSynthesizer.stop()
+    private func stop() {
+        ticket = UUID()
+        task?.cancel(); task = nil
+        listenTask?.cancel(); listenTask = nil
+        recognition.stopAndReturnTranscript(); voice.stop()
     }
 }
-

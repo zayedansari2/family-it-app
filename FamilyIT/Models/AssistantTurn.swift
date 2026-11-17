@@ -1,6 +1,6 @@
 import Foundation
 
-enum TurnKind: Equatable, Sendable {
+nonisolated enum TurnKind: String, Codable, Equatable, Sendable {
     case question
     case instruction
     case reassurance
@@ -15,6 +15,7 @@ struct AssistantTurn: Identifiable, Equatable, Sendable {
     let id = UUID()
     let text: String
     let kind: TurnKind
+    var action: ComputerAction? = nil
 }
 
 enum AssistantActivity: Equatable {
@@ -33,7 +34,7 @@ enum AssistantActivity: Equatable {
         case .speaking:
             "Speaking…"
         case .preparing:
-            "Preparing the next step…"
+            "Preparing a response…"
         case let .error(message):
             message
         }

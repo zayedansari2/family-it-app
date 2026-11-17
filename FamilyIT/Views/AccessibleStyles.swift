@@ -1,7 +1,9 @@
 import SwiftUI
 
 enum FamilyITColors {
-    static let brand = Color(red: 0.04, green: 0.29, blue: 0.46)
+    static let brand = Color(red: 0.10, green: 0.28, blue: 0.26)
+    static let muted = Color(red: 0.34, green: 0.40, blue: 0.36)
+    static let accent = Color(red: 0.66, green: 0.29, blue: 0.20)
     static let brandPressed = Color(red: 0.02, green: 0.20, blue: 0.32)
     static let softBlue = Color(red: 0.89, green: 0.95, blue: 0.98)
     static let warmBackground = Color(red: 0.97, green: 0.97, blue: 0.94)
@@ -16,7 +18,7 @@ struct PrimaryActionButtonStyle: ButtonStyle {
             .padding(.horizontal, 28)
             .frame(minHeight: 58)
             .background(configuration.isPressed ? FamilyITColors.brandPressed : FamilyITColors.brand)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
 }
@@ -31,7 +33,7 @@ struct SecondaryActionButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? FamilyITColors.softBlue.opacity(0.65) : .white)
             .overlay {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(FamilyITColors.brand, lineWidth: 2)
+                    .stroke(FamilyITColors.brand.opacity(0.35), lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }

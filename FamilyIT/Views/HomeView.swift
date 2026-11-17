@@ -5,22 +5,28 @@ struct HomeView: View {
     @FocusState private var textFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 22) {
-            Spacer(minLength: 18)
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView { content }
+        }
+    }
+    private var content: some View {
+        VStack(spacing: 18) {
+            Spacer(minLength: 6)
 
             HStack(spacing: 14) {
-                Image(systemName: "person.2.wave.2.fill")
+                Image(systemName: "waveform.circle")
                     .font(.system(size: 42, weight: .bold))
                     .foregroundStyle(FamilyITColors.brand)
                     .accessibilityHidden(true)
 
                 Text("Family IT")
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .semibold))
             }
 
             VStack(spacing: 12) {
                 Text("What can I help you with?")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .semibold))
                     .multilineTextAlignment(.center)
 
                 Text("Tell me what is happening. We’ll work through it together, one step at a time.")
@@ -38,10 +44,9 @@ struct HomeView: View {
                         .font(.title2.weight(.bold))
                 }
                 .foregroundStyle(.white)
-                .frame(width: 180, height: 150)
+                    .frame(width: 190, height: 132)
                 .background(assistant.isListening ? Color.red : FamilyITColors.brand)
-                .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
-                .shadow(color: .black.opacity(0.16), radius: 8, y: 4)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.space, modifiers: [])
@@ -95,7 +100,7 @@ struct HomeView: View {
             }
             .frame(maxWidth: 900)
 
-            Spacer(minLength: 18)
+            Spacer(minLength: 6)
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 24)
