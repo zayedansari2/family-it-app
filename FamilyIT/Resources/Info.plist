@@ -26,6 +26,10 @@
 	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Family IT uses Location permission only to read the connected Wi-Fi network name locally when you ask it to check your connection. Your location is not requested or saved.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Family IT checks the connected Wi-Fi network name locally. It does not request or save your coordinates.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Family IT uses the microphone while you choose to talk so it can hear the technology problem you describe. Audio recordings are not saved.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

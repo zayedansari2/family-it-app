@@ -19,6 +19,7 @@ nonisolated struct ComputerAction: Codable, Equatable, Sendable, Identifiable {
     var requiresConfirmation = true
     static let applications = ["Zoom", "System Settings", "Photos", "Finder", "Safari", "App Store"]
     static let settings = ["General", "Sound", "Wi-Fi", "Accessibility", "Microphone", "Speech Recognition"]
+    var opensOnly: Bool { type == .openApplication || type == .openSettings || type == .focusApplication }
 
     func validated() throws -> ComputerAction {
         guard requiresConfirmation else { throw GuidanceError.unsafeAction }

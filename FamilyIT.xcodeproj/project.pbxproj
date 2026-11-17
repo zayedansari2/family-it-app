@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        C10000000000000000000001 = {isa = PBXBuildFile; fileRef = C20000000000000000000001; };
+        C10000000000000000000002 = {isa = PBXBuildFile; fileRef = C20000000000000000000002; };
         B10000000000000000000004 = {isa = PBXBuildFile; fileRef = B20000000000000000000004; };
         B10000000000000000000001 = {isa = PBXBuildFile; fileRef = B20000000000000000000001; };
         B10000000000000000000002 = {isa = PBXBuildFile; fileRef = B20000000000000000000002; };
@@ -26,6 +28,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        C20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/WiFiFlow.swift; sourceTree = "<group>"; };
+        C20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/WiFiStatusService.swift; sourceTree = "<group>"; };
         B20000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
         B20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/ComputerAction.swift; sourceTree = "<group>"; };
         B20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/SafeComputerExecutor.swift; sourceTree = "<group>"; };
@@ -70,6 +74,8 @@
 			isa = PBXGroup;
 			children = (
                 B20000000000000000000001,
+                C20000000000000000000001,
+                C20000000000000000000002,
                 B20000000000000000000002,
                 B20000000000000000000003,
 				A40000000000000000000003 /* App */,
@@ -212,6 +218,8 @@
 			buildActionMask = 2147483647;
 			files = (
                 B10000000000000000000001,
+                C10000000000000000000001,
+                C10000000000000000000002,
                 B10000000000000000000002,
                 B10000000000000000000003,
 				A10000000000000000000001 /* FamilyITApp.swift in Sources */,
