@@ -77,6 +77,12 @@ import Foundation
         }
         catch { show(error) }
     }
+
+    func requestOpenApplication(named rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        propose(ComputerAction(type: .openApplication, application: name))
+    }
     func cancelAction() {
         pendingAction = nil
         engine.recordActionOutcome(succeeded: false)

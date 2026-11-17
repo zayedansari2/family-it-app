@@ -77,7 +77,7 @@ All actions become a typed enum, pass local validation, and require an explicit 
 - Press a uniquely matched Search or Back button in Finder or Photos.
 - Set exact confirmed text in a uniquely matched Finder/Photos search field.
 
-The Open… menu also lets the user select an allowlisted application directly. Unlisted apps, arbitrary URLs, arbitrary AX selectors, shell commands, AppleScript, destructive controls, and secure text fields are rejected. Click/type operations refuse ambiguous or missing targets and may be unavailable for controls whose accessibility labels differ by macOS version or language.
+The “Open on my Mac” card lets the user search for an installed application by name. Family IT searches the standard Applications folders and always asks for confirmation before opening it. It does not install apps or run arbitrary commands. Arbitrary URLs, arbitrary AX selectors, shell commands, AppleScript, destructive controls, and secure text fields are rejected. Click/type operations refuse ambiguous or missing targets and may be unavailable for controls whose accessibility labels differ by macOS version or language.
 
 An action outcome asks what the user sees. Opening an app does not establish that the original problem is solved. Accessibility label contents are displayed locally and are never automatically sent to a backend. The in-memory action log contains generic human-readable descriptions and never typed text or screen contents.
 
@@ -134,4 +134,4 @@ The native build and automated core tests pass. A real authenticated Codex respo
 
 The running UI was checked for home layout, typed Demo questions/answers, settings, action confirmation/cancellation, permission guidance, and speech-status transitions. Actual voice recognition, audible playback quality, and AX click/type operations still need a manual check after the user grants permissions. Automated tests do not toggle privacy permissions or mutate other apps.
 
-AI replies can be mistaken. Current installed-voice quality, app accessibility trees, and settings deep links depend on macOS. The action allowlist is deliberately small and English-only. The native placeholder icon is ready to replace with final branding.
+AI replies can be mistaken. Current installed-voice quality, app accessibility trees, and settings deep links depend on macOS. Computer actions remain deliberately narrow and confirmation-gated; the installed-app search is limited to locating and opening an app by name. The native placeholder icon is ready to replace with final branding.

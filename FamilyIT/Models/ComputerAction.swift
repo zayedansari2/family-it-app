@@ -26,7 +26,7 @@ nonisolated struct ComputerAction: Codable, Equatable, Sendable, Identifiable {
         case .none:
             guard application == nil, element == nil, text == nil else { throw GuidanceError.unsafeAction }
         case .openApplication, .focusApplication:
-            guard Self.applications.contains(application ?? ""), element == nil, text == nil else { throw GuidanceError.unsafeAction }
+            guard Self.isSafeApplicationName(application), element == nil, text == nil else { throw GuidanceError.unsafeAction }
         case .openSettings:
             guard Self.settings.contains(element ?? ""), application == nil, text == nil else { throw GuidanceError.unsafeAction }
         case .inspect:
@@ -39,6 +39,16 @@ nonisolated struct ComputerAction: Codable, Equatable, Sendable, Identifiable {
                   !text.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { throw GuidanceError.unsafeAction }
         }
         return self
+    }
+
+    private static func isSafeApplicationName(_ name: String?) -> Bool {
+        guard let name,
+              !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              name.count <= 80,
+              !name.contains("/"),
+              !name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+        else { return false }
+        return true
     }
     var description: String {
         switch type {

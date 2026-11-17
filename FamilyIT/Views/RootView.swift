@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("largerText") private var largerText = false
     @State private var support: String?
+    @State private var appQuery = ""
     var body: some View {
         HStack(spacing: 0) {
             sidebar
@@ -71,16 +72,39 @@ struct RootView: View {
             .buttonStyle(.plain)
             .familyGlass(radius: 12, tint: FamilyITColors.brand.opacity(0.09))
             .padding(.bottom, 8)
-            Menu {
-                ForEach(ComputerAction.applications, id: \.self) { name in
-                    Button(name) { assistant.propose(ComputerAction(type: .openApplication, application: name)) }
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Open on my Mac", systemImage: "macwindow")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(FamilyITColors.brand)
+                Text("Find any installed app")
+                    .font(.system(size: 12))
+                    .foregroundStyle(FamilyITColors.muted)
+                HStack(spacing: 7) {
+                    TextField("App name", text: $appQuery)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14))
+                        .onSubmit { assistant.requestOpenApplication(named: appQuery) }
+                    Button {
+                        assistant.requestOpenApplication(named: appQuery)
+                    } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 13, weight: .bold))
+                            .frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .background(FamilyITColors.brand, in: Circle())
+                    .foregroundStyle(.white)
+                    .disabled(appQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || assistant.isPreparing)
                 }
-                Divider()
-                Button("Sound settings") { assistant.propose(ComputerAction(type: .openSettings, element: "Sound")) }
-                Button("Wi-Fi settings") { assistant.propose(ComputerAction(type: .openSettings, element: "Wi-Fi")) }
-            } label: { sidebarLabel("Open on my Mac", icon: "macwindow") }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden)
-            .disabled(assistant.isPreparing)
+                .padding(.leading, 10).padding(.trailing, 5).padding(.vertical, 5)
+                .background(.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 14))
+                Text("Try Zoom, Safari, or any app you installed.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(FamilyITColors.muted)
+            }
+            .padding(14)
+            .familyGlass(radius: 18, tint: FamilyITColors.brand.opacity(0.07), interactive: false)
+            .padding(.bottom, 8)
             Spacer(minLength: 30)
             VStack(alignment: .leading, spacing: 6) {
                 Text("One step at a time.").font(.system(size: 17, weight: .medium))
