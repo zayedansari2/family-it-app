@@ -2,6 +2,8 @@
 
 A native macOS SwiftUI voice guide for everyday technology questions. Warm off-white, deep teal, muted green-gray text, terracotta accents, system typography, and one response at a time.
 
+The interface uses a translucent sidebar, native Liquid Glass microphone/composer surfaces, and native glass buttons on macOS 26 and later. macOS 14–15 use system materials and standard native buttons. Reduce Transparency uses opaque custom surfaces, and Reduce Motion disables view transitions.
+
 ## Open and run
 
 Requires macOS 14 or later and Xcode with Swift 6.2 or later. Verified with Xcode 26.4.1. No package downloads or API key are needed.
