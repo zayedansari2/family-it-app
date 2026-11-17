@@ -73,8 +73,13 @@ final class SpeechRecognitionService {
             report(error: SpeechRecognitionServiceError.recognizerUnavailable)
             return
         }
+        guard recognizer.supportsOnDeviceRecognition else {
+            report(error: SpeechRecognitionServiceError.recognizerUnavailable)
+            return
+        }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
+        request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
         recognitionRequest = request
@@ -113,6 +118,7 @@ final class SpeechRecognitionService {
         partialResultHandler = nil
         automaticFinishHandler = nil
         errorHandler = nil
+        latestTranscript = ""
     }
 
     private func hasMicrophonePermission() async -> Bool {

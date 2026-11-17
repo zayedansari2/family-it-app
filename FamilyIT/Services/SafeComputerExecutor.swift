@@ -28,7 +28,7 @@ import Speech
         "Zoom": "us.zoom.xos", "Safari": "com.apple.Safari",
         "App Store": "com.apple.AppStore", "System Settings": "com.apple.systempreferences"]
 
-    /// Invoked only by the explicit Continue handler. Validation is repeated here.
+    /// Opening apps/settings runs directly; deeper actions use the Continue handler.
     func execute(_ proposal: ComputerAction) async throws -> String {
         let action = try proposal.validated()
         switch action.type {

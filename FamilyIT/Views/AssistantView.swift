@@ -29,7 +29,28 @@ struct AssistantView: View {
                     .frame(maxWidth: 700, minHeight: 100)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
-                TalkControl(compact: true)
+                if assistant.acceptsWiFiInput { TalkControl(compact: true) }
+                if assistant.isWiFiFlow {
+                    Label(assistant.wifi.statusLabel, systemImage: "wifi")
+                        .font(.callout.weight(.medium)).foregroundStyle(FamilyITColors.brand)
+                    if !assistant.acceptsWiFiInput {
+                        Text("Microphone and text entry are off here. Enter passwords only in System Settings.")
+                            .font(.callout).foregroundStyle(FamilyITColors.muted).multilineTextAlignment(.center)
+                    }
+                    if assistant.wifi.canRetry {
+                        Button("Try again", action: assistant.retryWiFi).buttonStyle(PrimaryActionButtonStyle())
+                    }
+                    if assistant.wifiState == .unavailable {
+                        Button("Enable connection checks", action: assistant.allowWiFiChecks)
+                            .buttonStyle(SecondaryActionButtonStyle())
+                        Text("If access is off, enable Family IT in System Settings → Privacy & Security → Location Services. Then choose Try again and I did it. What does Wi-Fi settings show?")
+                            .font(.callout).foregroundStyle(FamilyITColors.muted)
+                    }
+                    if assistant.wifiState == .differentNetwork {
+                        Button("Yes, that is my network", action: assistant.confirmWiFiName)
+                            .buttonStyle(PrimaryActionButtonStyle())
+                    }
+                }
                 if !assistant.heardText.isEmpty {
                     Text("I heard: \(assistant.heardText)").font(.callout).foregroundStyle(FamilyITColors.muted).lineLimit(2)
                 }
@@ -59,12 +80,14 @@ struct AssistantView: View {
                     .buttonStyle(PrimaryActionButtonStyle()).disabled(assistant.isPreparing)
                     Text("We’ll wait here until you are done.").font(.callout).foregroundStyle(FamilyITColors.muted)
                 }
-                ReplyComposer(text: $assistant.typedReply, placeholder: "Or type your answer",
+                if assistant.acceptsWiFiInput {
+                ReplyComposer(text: $assistant.typedReply, placeholder: assistant.isWiFiFlow ? "Network name only — no password" : "Or type your answer",
                               actionLabel: "Send answer",
                               disabled: assistant.typedReply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                               assistant.isPreparing || assistant.hasPendingAction,
                               submit: assistant.submitReply)
                     .frame(maxWidth: 600).padding(.top, 4)
+                }
             }
             Spacer(minLength: 8)
             ViewThatFits(in: .horizontal) {
@@ -76,10 +99,13 @@ struct AssistantView: View {
         .padding(.horizontal, 36).padding(.vertical, 16)
     }
     @ViewBuilder private var assistanceButtons: some View {
-        Button("That didn’t work") { assistant.needsMoreHelp() }.buttonStyle(SecondaryActionButtonStyle())
+        Button("I need more help") { assistant.needsMoreHelp() }.buttonStyle(SecondaryActionButtonStyle())
         Button("Explain differently", action: assistant.explainDifferently)
             .buttonStyle(SecondaryActionButtonStyle()).accessibilityLabel("Explain that differently")
         Button { assistant.repeatInstruction() } label: { Label("Read again", systemImage: "speaker.wave.2") }
             .buttonStyle(SecondaryActionButtonStyle())
+        if assistant.isWiFiFlow {
+            Button("Go back", action: assistant.returnHome).buttonStyle(SecondaryActionButtonStyle())
+        }
     }
 }

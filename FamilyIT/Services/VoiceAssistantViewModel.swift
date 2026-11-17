@@ -20,6 +20,42 @@ import Foundation
     private var listenTask: Task<Void, Never>?
     private var retryOperation: (() async throws -> AssistantTurn)?
     private var ticket = UUID()
+    let wifi = WiFiFlow()
+    private let wifiStatus: any WiFiStatusProviding = WiFiStatusService()
+    private let wifiLocation = WiFiLocationPermission()
+    @Published private(set) var wifiState: WiFiFlow.State = .inactive
+    var isWiFiFlow: Bool { wifiState != .inactive }
+    var acceptsWiFiInput: Bool { !isWiFiFlow || wifiState == .askingForNetworkName }
+
+    private func refreshWiFi() {
+        wifiState = wifi.state
+        currentTurn = wifi.turn
+        backendLabel = "On your Mac"
+        pendingAction = nil; retryOperation = nil; canRetry = false
+        typedProblem = ""; typedReply = ""; heardText = ""
+    }
+    private func continueWiFi() {
+        refreshWiFi()
+        guard wifi.state == .openingWiFiSettings else { speak(wifi.turn); return }
+        stop()
+        activity = .preparing
+        let token = ticket
+        task = Task { [weak self] in
+            guard let self else { return }
+            do {
+                _ = try await executor.execute(WiFiFlow.settingsAction)
+                guard token == ticket, !Task.isCancelled else { return }
+                wifi.settingsOpened(succeeded: true)
+            } catch {
+                guard token == ticket, !Task.isCancelled else { return }
+                wifi.settingsOpened(succeeded: false)
+            }
+            refreshWiFi(); speak(wifi.turn)
+        }
+    }
+    func retryWiFi() { wifi.retry(); continueWiFi() }
+    func allowWiFiChecks() { wifiLocation.request() }
+    func confirmWiFiName() { wifi.confirmObservedNetwork(); refreshWiFi(); speak(wifi.turn) }
 
     init(engine: TroubleshootingEngine = CodexTroubleshootingEngine()) { self.engine = engine }
     var isListening: Bool { activity == .listening }
@@ -31,6 +67,13 @@ import Foundation
         guard !cleaned.isEmpty else { return }
         stop()
         engine.reset()
+        wifi.reset(); wifiState = .inactive
+        if WiFiIntent.isRequest(cleaned) || WiFiIntent.isSensitive(cleaned) {
+            screen = .assistant
+            wifi.start(cleaned)
+            continueWiFi()
+            return
+        }
         typedProblem = cleaned
         typedReply = ""
         screen = .assistant
@@ -45,9 +88,25 @@ import Foundation
     }
     func didCompleteInstruction() {
         guard !isPreparing, pendingAction == nil, currentTurn?.kind == .instruction else { return }
+        if isWiFiFlow {
+            guard wifi.state == .waitingForUser else { return }
+            stop(); activity = .preparing
+            let token = ticket
+            task = Task { [weak self] in
+                guard let self else { return }
+                // verify changes state before its first suspension.
+                wifiState = .verifyingConnection
+                currentTurn = AssistantTurn(text: "Checking your connection.", kind: .reassurance)
+                await wifi.verify(using: wifiStatus)
+                guard token == ticket, !Task.isCancelled else { return }
+                refreshWiFi(); speak(wifi.turn)
+            }
+            return
+        }
         request { [engine] in try await engine.advance(with: nil) }
     }
     func needsMoreHelp(context: String? = nil) {
+        if isWiFiFlow { stop(); wifi.moreHelp(); refreshWiFi(); speak(wifi.turn); return }
         pendingAction = nil
         request { [engine] in try await engine.provideMoreHelp(context: context ?? "That didn’t work. Try a different approach.") }
     }
@@ -56,12 +115,14 @@ import Foundation
     func retry() { if let retryOperation { request(retryOperation) } }
     func cancel() {
         stop()
+        if isWiFiFlow { wifi.reset(); wifiState = .inactive; returnHome(); return }
         pendingAction = nil
         activity = .idle
         canRetry = retryOperation != nil
     }
     func returnHome() {
         stop(); engine.reset()
+        wifi.reset(); wifiState = .inactive
         pendingAction = nil; currentTurn = nil; typedProblem = ""; typedReply = ""; heardText = ""
         backendLabel = ""; actionLog = []; retryOperation = nil; canRetry = false
         activity = .idle; screen = .home
@@ -70,8 +131,10 @@ import Foundation
         guard !isPreparing else { return }
         voice.stop()
         do {
-            pendingAction = try action.validated()
+            let validated = try action.validated()
+            pendingAction = validated
             screen = .assistant
+            if validated.opensOnly { confirmAction(); return }
             currentTurn = AssistantTurn(text: "Review this request before continuing.", kind: .instruction)
             activity = .idle
         }
@@ -107,13 +170,18 @@ import Foundation
                 if currentTicket == ticket {
                     engine.recordActionOutcome(succeeded: false)
                     show(error)
-                    pendingAction = action
+                    pendingAction = action.opensOnly ? nil : action
                 }
             }
         }
     }
     private func receive(_ text: String) {
         guard !isPreparing, pendingAction == nil else { return }
+        if isWiFiFlow {
+            if wifi.state == .askingForNetworkName { wifi.acceptName(text); continueWiFi() }
+            return
+        }
+        if WiFiIntent.isRequest(text) || WiFiIntent.isSensitive(text) { begin(problem: text); return }
         if screen == .home { begin(problem: text); return }
         if currentTurn?.kind == .instruction {
             if ConversationInput.confirmsCompletion(text) { didCompleteInstruction() }
@@ -133,7 +201,8 @@ import Foundation
                 backendLabel = engine.backendLabel
                 currentTurn = turn
                 pendingAction = turn.action
-                speak(turn)
+                if turn.action?.opensOnly == true { confirmAction() }
+                else { speak(turn) }
             } catch is CancellationError { }
             catch { if currentTicket == ticket, !Task.isCancelled { show(error); canRetry = true } }
         }
@@ -146,12 +215,15 @@ import Foundation
             receive(text)
             return
         }
-        guard !isPreparing, pendingAction == nil else { return }
+        guard !isPreparing, pendingAction == nil, acceptsWiFiInput else { return }
         voice.stop(); activity = .listening; heardText = ""
         listenTask = Task { [weak self] in
             guard let self else { return }
             await recognition.start(onPartialResult: { [weak self] text in
                 guard let self, isListening else { return }
+                if isWiFiFlow || WiFiIntent.isRequest(text) || WiFiIntent.isSensitive(text) {
+                    heardText = ""; typedProblem = ""; return
+                }
                 heardText = text
                 if screen == .home { typedProblem = text }
             }, onAutomaticFinish: { [weak self] text in
