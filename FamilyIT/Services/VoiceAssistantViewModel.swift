@@ -56,6 +56,7 @@ import Foundation
     func retryWiFi() { wifi.retry(); continueWiFi() }
     func allowWiFiChecks() { wifiLocation.request() }
     func confirmWiFiName() { wifi.confirmObservedNetwork(); refreshWiFi(); speak(wifi.turn) }
+    func reportWiFi(_ observation: WiFiFlow.Observation) { wifi.report(observation); refreshWiFi(); speak(wifi.turn) }
 
     init(engine: TroubleshootingEngine = CodexTroubleshootingEngine()) { self.engine = engine }
     var isListening: Bool { activity == .listening }

@@ -145,3 +145,20 @@ private actor DelayedWiFi: WiFiStatusProviding {
     #expect(!ComputerAction(type: .typeText, application: "Finder", element: "Search", text: "photos").opensOnly)
     #expect(!ComputerAction(type: .click, application: "Finder", element: "Back").opensOnly)
 }
+
+@Test @MainActor func manualReportsNeverClaimVerifiedConnection() async {
+    for observation in [WiFiFlow.Observation.connected, .missingNetwork, .passwordRejected] {
+        let flow = WiFiFlow()
+        flow.start("Connect to Guest"); flow.settingsOpened(succeeded: true)
+        await flow.verify(using: FakeWiFi(.init(state: .unavailable)))
+        flow.report(observation)
+        #expect(flow.state != .connected)
+        if observation == .connected {
+            #expect(flow.state == .userReported)
+            #expect(flow.turn.text.contains("can’t independently verify"))
+        } else {
+            #expect(flow.state == .waitingForUser)
+            #expect(flow.turn.kind == .instruction)
+        }
+    }
+}

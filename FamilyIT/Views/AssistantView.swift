@@ -45,6 +45,11 @@ struct AssistantView: View {
                             .buttonStyle(SecondaryActionButtonStyle())
                         Text("If access is off, enable Family IT in System Settings → Privacy & Security → Location Services. Then choose Try again and I did it. What does Wi-Fi settings show?")
                             .font(.callout).foregroundStyle(FamilyITColors.muted)
+                        VStack(spacing: 8) {
+                            Button("It says Connected") { assistant.reportWiFi(.connected) }
+                            Button("Network is missing") { assistant.reportWiFi(.missingNetwork) }
+                            Button("Password was not accepted") { assistant.reportWiFi(.passwordRejected) }
+                        }.buttonStyle(SecondaryActionButtonStyle())
                     }
                     if assistant.wifiState == .differentNetwork {
                         Button("Yes, that is my network", action: assistant.confirmWiFiName)

@@ -56,7 +56,7 @@ nonisolated enum WiFiIntent {
 /// Local-only state machine. There is deliberately no backend or password action here.
 @MainActor final class WiFiFlow {
     enum State: Equatable { case inactive, askingForNetworkName, openingWiFiSettings, waitingForUser,
-        verifyingConnection, connected, notConnected, unavailable, openFailed, differentNetwork }
+        verifyingConnection, connected, notConnected, unavailable, openFailed, differentNetwork, userReported }
     private(set) var state: State = .inactive
     private(set) var networkName: String?
     private var observedName: String?
@@ -72,6 +72,7 @@ nonisolated enum WiFiIntent {
         case .waitingForUser: "Ready to check your connection"
         case .verifyingConnection: "Checking your connection"
         case .connected: "You are connected"
+        case .userReported: "Reported by you · not independently verified"
         case .notConnected, .unavailable, .differentNetwork, .openFailed: "We could not confirm the connection"
         default: "Wi-Fi help · stays on your Mac"
         }
@@ -89,6 +90,7 @@ nonisolated enum WiFiIntent {
         case .differentNetwork:
             return .init(text: "Your Mac reports “\(observedName ?? "another network")”, not “\(target)”. Is that the network you expected?", kind: .question)
         case .notConnected: return .init(text: detail, kind: .question)
+        case .userReported: return .init(text: detail, kind: .completion)
         case .openFailed: return .init(text: "I couldn’t open Wi-Fi settings. Open System Settings, then choose Wi-Fi. Choose Try again to reopen it.", kind: .question)
         default:
             return .init(text: "macOS hasn’t made the Wi-Fi network name available. I can’t confirm this connection. Check the connected network in System Settings. You can optionally enable connection checks below.", kind: .question)
@@ -137,6 +139,21 @@ nonisolated enum WiFiIntent {
             state = .notConnected
             detail = status.state == .disabled ? "Wi-Fi is turned off. Turn it on in System Settings, then select “\(networkName ?? "your network")”." : "It looks like you are not connected to “\(networkName ?? "your network")” yet."
         case .unavailable: state = .unavailable
+        }
+    }
+    enum Observation { case connected, missingNetwork, passwordRejected }
+    func report(_ observation: Observation) {
+        guard state == .unavailable else { return }
+        switch observation {
+        case .connected:
+            detail = "System Settings says you are connected. I still can’t independently verify the network name. Check that it shows “\(networkName ?? "your network")”."
+            state = .userReported
+        case .missingNetwork:
+            detail = "Move closer to the Wi-Fi router, then look under Other Networks in System Settings for “\(networkName ?? "your network")”. If it is still missing, ask the network owner for its exact name."
+            state = .waitingForUser
+        case .passwordRejected:
+            detail = "Ask the network owner to confirm the password. Enter it only in System Settings, then press Connect. Come back and choose “I did it”."
+            state = .waitingForUser
         }
     }
     func confirmObservedNetwork() {

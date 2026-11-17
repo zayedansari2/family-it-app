@@ -91,6 +91,8 @@ macOS requires Location Services authorization to expose SSIDs ([Apple CoreWLAN 
 
 Network names and status stay in memory on your Mac and never enter the Codex/Claude history or action log. Password-labelled input is intercepted locally and replaced by a reminder to use System Settings. No password field is inspected; there is no Keychain access. Do not speak or paste a password into the network-name prompt: arbitrary text cannot reliably be identified as a password, and speech must transiently transcribe words on-device before they can be classified. No app can promise to recognize every accidentally disclosed secret. There is no audio persistence, and completed recognition transcripts are cleared.
 
+When macOS hides the network name, answer using the local buttons: It says Connected, Network is missing, or Password was not accepted. A user-reported connection is explicitly labelled unverified. These choices never request or send password text.
+
 Manual verification: try an actual network you are authorized to join, enter its password in System Settings, return, and choose I did it. Also try declining Location access, a different connected network, Wi-Fi off, retry, and Go back during checking. Automated tests use fake status providers and never change this Mac's network or permissions.
 
 An action outcome asks what the user sees. Opening an app does not establish that the original problem is solved. Accessibility label contents are displayed locally and are never automatically sent to a backend. The in-memory action log contains generic human-readable descriptions and never typed text or screen contents.
