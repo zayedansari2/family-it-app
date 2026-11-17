@@ -101,6 +101,36 @@ struct RootView: View {
                 Text("Try Zoom, Safari, or any app you installed.")
                     .font(.system(size: 11))
                     .foregroundStyle(FamilyITColors.muted)
+                Menu {
+                    Section("Common apps") {
+                        ForEach(ComputerAction.applications, id: \.self) { name in
+                            Button {
+                                assistant.propose(ComputerAction(type: .openApplication, application: name))
+                            } label: {
+                                Label(name, systemImage: iconForApplication(name))
+                            }
+                        }
+                    }
+                    Section("Settings") {
+                        Button {
+                            assistant.propose(ComputerAction(type: .openSettings, element: "Sound"))
+                        } label: {
+                            Label("Sound settings", systemImage: "speaker.wave.2")
+                        }
+                        Button {
+                            assistant.propose(ComputerAction(type: .openSettings, element: "Wi-Fi"))
+                        } label: {
+                            Label("Wi-Fi settings", systemImage: "wifi")
+                        }
+                    }
+                } label: {
+                    Label("Common apps & settings", systemImage: "list.bullet")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(FamilyITColors.brand)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .menuStyle(.borderlessButton)
+                .disabled(assistant.isPreparing)
             }
             .padding(14)
             .familyGlass(radius: 18, tint: FamilyITColors.brand.opacity(0.07), interactive: false)
@@ -131,5 +161,17 @@ struct RootView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12).frame(minHeight: 44)
             .contentShape(Rectangle())
+    }
+
+    private func iconForApplication(_ name: String) -> String {
+        switch name {
+        case "Zoom": "video"
+        case "System Settings": "gearshape"
+        case "Photos": "photo"
+        case "Finder": "folder"
+        case "Safari": "safari"
+        case "App Store": "bag"
+        default: "app"
+        }
     }
 }
