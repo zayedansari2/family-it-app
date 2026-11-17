@@ -10,4 +10,7 @@ xcuserdata/
 
 # macOS
 .DS_Store
+.env
+.env.local
+*.xcresult
 
