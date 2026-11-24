@@ -24,6 +24,10 @@
 	<string>public.app-category.utilities</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Family IT uses Apple events to send messages and create notes when you request those actions.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Family IT looks up people you name so it can send your requested messages. Your address book stays on this Mac.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

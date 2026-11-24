@@ -8,13 +8,13 @@ struct FamilyITApp: App {
         WindowGroup("Family IT") {
             RootView()
                 .environmentObject(assistant)
-                .frame(minWidth: 900, minHeight: 760)
+                .frame(minWidth: 400, minHeight: 580)
         }
-        .defaultSize(width: 1120, height: 880)
+        .defaultSize(width: 460, height: 720)
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         Settings {
-            PreferencesView().frame(width: 550, height: 430)
+            PreferencesView().frame(width: 600, height: 650)
         }
     }
 }

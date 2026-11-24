@@ -10,8 +10,24 @@ import Foundation
         #expect(!ConversationInput.confirmsCompletion(answer))
     }
 }
+@Test func telehealthDemoIsFixedAndCompletesInSixActs() {
+    var demo = TelehealthDemoFlow()
+    #expect(demo.act == .wifiAndAudio)
+    #expect(demo.actNumber == 1)
+    #expect(demo.resultTitle == nil)
+    for _ in 0..<6 { demo.advance() }
+    #expect(demo.act == .complete)
+    #expect(demo.isComplete)
+    #expect(demo.progress == 1)
+    let finalTitle = demo.resultTitle
+    demo.advance()
+    #expect(demo.act == .complete)
+    #expect(demo.resultTitle == finalTitle)
+    demo.reset()
+    #expect(demo.act == .wifiAndAudio)
+}
 @Test func rejectsUnknownAndArbitraryActions() {
-    for action in ["run_shell", "delete_file", "send_email", "install_software", "applescript", "open_url"] {
+    for action in ["run_shell", "delete_file", "send_email", "install_software", "applescript"] {
         let json = """
         {"reply":"Do it","kind":"instruction","action":{"type":"\(action)","requiresConfirmation":true}}
         """
@@ -25,6 +41,31 @@ import Foundation
     }
     #expect(throws: GuidanceError.self) {
         try ComputerAction(type: .click, application: "Finder", element: "Delete").validated()
+    }
+}
+@Test func safeLinksMessagesAndNotesAreStrictlyValidated() throws {
+    let link = ComputerAction(type: .openURL, text: "https://example.com/help")
+    #expect(try link.validated() == link)
+    #expect(link.opensOnly)
+    #expect(throws: GuidanceError.self) {
+        try ComputerAction(type: .openURL, text: "file:///etc/passwd").validated()
+    }
+    #expect(throws: GuidanceError.self) {
+        try ComputerAction(type: .openURL, text: "https://user:password@example.com").validated()
+    }
+
+    let message = ComputerAction(type: .sendMessage, application: "+1 206 555 0100", text: "I am on my way.")
+    #expect(try message.validated() == message)
+    #expect(!message.opensOnly)
+    #expect(throws: GuidanceError.self) {
+        try ComputerAction(type: .sendMessage, application: "John; do shell script", text: "Hello").validated()
+    }
+
+    let note = ComputerAction(type: .createNote, element: "Shopping list", text: "Milk")
+    #expect(try note.validated() == note)
+    #expect(!note.opensOnly)
+    #expect(throws: GuidanceError.self) {
+        try ComputerAction(type: .createNote, element: "", text: "Milk").validated()
     }
 }
 @Test func actionsAlwaysNeedConfirmation() throws {
@@ -137,6 +178,7 @@ import Foundation
     let arguments = CodexTroubleshootingEngine.codexArguments(schema: URL(fileURLWithPath: "/tmp/schema"),
                                                              reply: URL(fileURLWithPath: "/tmp/reply"))
     #expect(arguments.contains("--ephemeral"))
+    #expect(arguments.contains("model_reasoning_effort=\"low\""))
     #expect(arguments.contains("features.shell_tool=false"))
     #expect(arguments.contains("features.plugins=false"))
     #expect(arguments.last == "-")

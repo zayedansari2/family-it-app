@@ -54,5 +54,6 @@ enum AssistantActivity: Equatable {
 enum AppScreen {
     case home
     case assistant
+    case telehealthDemo
 }
 

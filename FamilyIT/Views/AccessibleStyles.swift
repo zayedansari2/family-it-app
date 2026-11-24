@@ -138,7 +138,7 @@ struct ActivityStatusView: View {
             HStack(spacing: 9) {
                 if activity == .preparing { ProgressView().controlSize(.small) }
                 else { Image(systemName: activity.symbolName) }
-                Text(label).fixedSize(horizontal: false, vertical: true)
+                if activity != .preparing { Text(label).fixedSize(horizontal: false, vertical: true) }
             }
             .font(.callout.weight(.medium))
             .foregroundStyle(isError ? FamilyITColors.accent : FamilyITColors.muted)

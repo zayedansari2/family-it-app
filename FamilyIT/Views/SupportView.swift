@@ -1,12 +1,18 @@
 import SwiftUI
 import AVFoundation
+import Contacts
 
 struct PreferencesView: View {
     @AppStorage("voiceEnabled") private var voiceEnabled = true
     @AppStorage("voiceIdentifier") private var voiceIdentifier = ""
     @AppStorage("voiceSpeed") private var speed = 0.42
     @AppStorage("largerText") private var largerText = false
-    @AppStorage("backend") private var backend = "auto"
+    @AppStorage("backend") private var backend = Backend.auto.rawValue
+    @AppStorage("notesFolder") private var notesFolder = "Family IT"
+    @StateObject private var contacts = ContactDirectory()
+    @State private var alias = "my son"
+    @State private var search = ""
+    @State private var detail = ""
     var body: some View {
         Form {
             Section("Reading and speech") {
@@ -20,13 +26,40 @@ struct PreferencesView: View {
                 HStack { Text("Speaking speed"); Slider(value: $speed, in: 0.25...0.55); Text(speed < 0.4 ? "Slower" : "Normal") }
                 Toggle("Larger text", isOn: $largerText)
             }
-            Section("Assistant") {
-                Picker("Response provider", selection: $backend) {
-                    ForEach(Backend.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
+            Section("AI assistant") {
+                Picker("Assistant", selection: $backend) {
+                    Text("Automatic (recommended)").tag(Backend.auto.rawValue)
+                    Text("Codex").tag(Backend.codex.rawValue)
+                    Text("Claude").tag(Backend.claude.rawValue)
                 }
-                Text("Applies to your next question. Automatic checks Codex, then Claude, then Demo mode. A FAMILY_IT_BACKEND environment setting takes precedence.")
+                Text("Automatic uses your signed-in Codex or Claude installation. Common actions run locally. Explicit send requests submit immediately; draft requests prepare a preview.")
                     .font(.callout).foregroundStyle(.secondary)
+                Button("Check AI setup") { Task { detail = await ActionPlanner().diagnostics() } }
             }
+            Section("Notes and contacts") {
+                TextField("Notes folder", text: $notesFolder)
+                TextField("Contact alias (for example, my son)", text: $alias)
+                Button("Load contacts") {
+                    Task {
+                        do { try await contacts.load(); detail = "Choose a person below to remember this alias." }
+                        catch { detail = error.localizedDescription }
+                    }
+                }
+                if !contacts.choices.isEmpty {
+                    TextField("Search contacts", text: $search)
+                    ScrollView {
+                        LazyVStack(alignment: .leading) {
+                            ForEach(contacts.choices.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }.prefix(40)) { choice in
+                                Button(choice.displayLabel) {
+                                    contacts.saveAlias(alias, choice: choice)
+                                    detail = "Remembered \(alias) as \(choice.name)."
+                                }
+                            }
+                        }
+                    }.frame(height: 100)
+                }
+            }
+            if !detail.isEmpty { Text(detail).font(.callout).textSelection(.enabled) }
         }.formStyle(.grouped).padding()
     }
 }
@@ -47,18 +80,20 @@ struct SupportView: View {
                                    enabled: permissions.microphone == .authorized)
                         permission("Speech Recognition", detail: "Turns your spoken words into text. Apple may process speech according to your Mac’s settings.",
                                    enabled: permissions.speech == .authorized)
-                        permission("Accessibility", detail: "Needed only to read a focused control or perform a confirmed click or search entry in Finder or Photos. Enable Family IT manually; it cannot grant access itself.",
+                        permission("Accessibility", detail: "Reads meeting links in your open Safari invitation and explains Zoom preview controls under your pointer. Page content stays on this Mac.",
                                    enabled: permissions.accessibility)
+                        permission("Contacts", detail: "Finds recipients locally by name. Enable access when you want to message a contact.",
+                                   enabled: CNContactStore.authorizationStatus(for: .contacts) == .authorized)
+                        Text("Meeting notes require Microphone, Speech Recognition, and Screen & System Audio Recording access. Recording starts only when requested; Stop notes ends capture.")
+                        Button("Open capture settings") { assistant.propose(.init(type: .openSettings, element: "Screen Recording")) }
                         Text("You can turn any permission off in System Settings → Privacy & Security. Typing always remains available.")
                         Button("Refresh permission status") { permissions.refresh() }
                     } else {
-                        Text("Ask a question by speaking or typing. Family IT gives one small step and waits for you to say “I did it.”")
-                        Text("If a step fails, choose “That didn’t work.” Choose “Explain that differently” for another explanation.")
-                        Text("Computer actions always show what will happen. Choose Continue to approve that action, or Cancel to leave your Mac unchanged.")
-                        Text("Family IT cannot see your screen. This version has no screenshots, camera, or screen-sharing feature.")
-                        Text("Codex or Claude receives your typed or transcribed conversation to prepare replies over the internet. Your existing CLI account and its usage limits apply. Demo mode works offline.")
-                        Text("Conversation history lives in memory. Temporary response files are removed after each request. No audio recordings, analytics, database, or action text are saved by Family IT. CLI providers may retain account-level operational data.")
-                        Text("The demonstration covers Zoom sound on a Mac. It will not solve other questions. Select Demo mode in Settings to try it.")
+                        Text("Describe what you need. Common requests run immediately on your Mac; Codex or Claude plans unfamiliar wording and complete tasks.")
+                        Text("Wi-Fi status and speech transcription are processed locally. Passwords should only be entered in System Settings.")
+                        Text("Explicit send requests submit immediately when the recipient is clear. Contact choices appear only when needed. Draft requests prepare a preview without sending.")
+                        Text("Meeting audio is transcribed locally in memory. The actual transcript goes to your selected AI for summarization. Notes persist in Apple Notes; raw audio is never saved. ScreenCaptureKit is used for Zoom audio, with no screen images recorded.")
+                        ForEach(Array(assistant.timings.suffix(15).enumerated()), id: \.offset) { _, timing in Text(timing).font(.caption) }
                         if !assistant.actionLog.isEmpty {
                             Text("Actions this session").font(.headline)
                             ForEach(Array(assistant.actionLog.enumerated()), id: \.offset) { _, description in

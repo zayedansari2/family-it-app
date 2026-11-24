@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E10000000000000000000001 = {isa = PBXBuildFile; fileRef = E20000000000000000000001; };
+		E10000000000000000000002 = {isa = PBXBuildFile; fileRef = E20000000000000000000002; };
+		E10000000000000000000003 = {isa = PBXBuildFile; fileRef = E20000000000000000000003; };
+		E10000000000000000000004 = {isa = PBXBuildFile; fileRef = E20000000000000000000004; };
+		E10000000000000000000005 = {isa = PBXBuildFile; fileRef = E20000000000000000000005; };
+		D10000000000000000000001 = {isa = PBXBuildFile; fileRef = D20000000000000000000001; };
+		D10000000000000000000002 = {isa = PBXBuildFile; fileRef = D20000000000000000000002; };
         C10000000000000000000001 = {isa = PBXBuildFile; fileRef = C20000000000000000000001; };
         C10000000000000000000002 = {isa = PBXBuildFile; fileRef = C20000000000000000000002; };
         B10000000000000000000004 = {isa = PBXBuildFile; fileRef = B20000000000000000000004; };
@@ -28,6 +35,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		E20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/ActionPlan.swift; sourceTree = "<group>"; };
+		E20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/ActionPlanner.swift; sourceTree = "<group>"; };
+		E20000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/ActionRuntime.swift; sourceTree = "<group>"; };
+		E20000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/ContactDirectory.swift; sourceTree = "<group>"; };
+		E20000000000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/MeetingRecorder.swift; sourceTree = "<group>"; };
+		D20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelehealthDemoFlow.swift; sourceTree = "<group>"; };
+		D20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelehealthDemoView.swift; sourceTree = "<group>"; };
         C20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/WiFiFlow.swift; sourceTree = "<group>"; };
         C20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/WiFiStatusService.swift; sourceTree = "<group>"; };
         B20000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -73,6 +87,11 @@
 		A40000000000000000000002 /* FamilyIT */ = {
 			isa = PBXGroup;
 			children = (
+				E20000000000000000000001,
+				E20000000000000000000002,
+				E20000000000000000000003,
+				E20000000000000000000004,
+				E20000000000000000000005,
                 B20000000000000000000001,
                 C20000000000000000000001,
                 C20000000000000000000002,
@@ -98,6 +117,7 @@
 		A40000000000000000000004 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				D20000000000000000000001,
 				A20000000000000000000002 /* AssistantTurn.swift */,
 				A20000000000000000000003 /* TroubleshootingEngine.swift */,
 			);
@@ -119,6 +139,7 @@
 		A40000000000000000000006 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				D20000000000000000000002,
 				A20000000000000000000007 /* RootView.swift */,
 				A20000000000000000000008 /* HomeView.swift */,
 				A20000000000000000000009 /* AssistantView.swift */,
@@ -217,6 +238,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E10000000000000000000001,
+				E10000000000000000000002,
+				E10000000000000000000003,
+				E10000000000000000000004,
+				E10000000000000000000005,
+				D10000000000000000000001,
+				D10000000000000000000002,
                 B10000000000000000000001,
                 C10000000000000000000001,
                 C10000000000000000000002,

@@ -16,7 +16,7 @@ struct HomeView: View {
         VStack(spacing: 28) {
             Spacer(minLength: 12)
             VStack(spacing: 24) {
-                Text("Ask any question")
+                Text("How can I help?")
                     .font(.system(size: largerText ? 48 : 42, weight: .medium))
                     .tracking(-1.5)
                     .accessibilityAddTraits(.isHeader)
@@ -24,7 +24,7 @@ struct HomeView: View {
                 if assistant.activity != .idle {
                     ActivityStatusView(activity: assistant.activity)
                 }
-                ReplyComposer(text: $assistant.typedProblem, placeholder: "Type your question",
+                ReplyComposer(text: $assistant.typedProblem, placeholder: "Ask a question or request an action",
                               actionLabel: "Ask", disabled: assistant.typedProblem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) {
                     assistant.begin(problem: assistant.typedProblem)
                 }
@@ -41,7 +41,7 @@ struct HomeView: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    Label("Open on my Mac", systemImage: "macwindow")
+                    Label("Find on my Mac", systemImage: "macwindow")
                         .font(.system(size: largerText ? 26 : 22, weight: .medium))
                     Spacer()
                     Menu {

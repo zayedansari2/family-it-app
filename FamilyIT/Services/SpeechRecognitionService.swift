@@ -82,6 +82,7 @@ final class SpeechRecognitionService {
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
+        request.taskHint = .dictation
         recognitionRequest = request
         latestTranscript = ""
 
@@ -173,8 +174,13 @@ final class SpeechRecognitionService {
         guard recognitionRequest != nil else { return }
 
         if let transcript {
-            latestTranscript = transcript
-            partialResultHandler?(transcript)
+            // On-device recognition can briefly emit a shorter interim revision.
+            // Keep the longest visible partial so the caption does not appear to
+            // cut itself off while the person is still speaking.
+            if isFinal || transcript.count >= latestTranscript.count {
+                latestTranscript = transcript
+                partialResultHandler?(transcript)
+            }
             if isFinal {
                 let finishHandler = automaticFinishHandler
                 cleanup()

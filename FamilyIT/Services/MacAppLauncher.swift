@@ -9,11 +9,11 @@ enum AppLaunchResult: Equatable, Sendable {
 
 /// Boundary for local Mac actions. Future automation features can use separate
 /// implementations without coupling AppKit operations to the SwiftUI views.
-protocol AppLaunching: AnyObject {
+@MainActor protocol AppLaunching: AnyObject {
     func openApplication(named requestedName: String) async -> AppLaunchResult
 }
 
-final class MacAppLauncher: AppLaunching {
+@MainActor final class MacAppLauncher: AppLaunching {
     private let workspace: NSWorkspace
     private let fileManager: FileManager
 

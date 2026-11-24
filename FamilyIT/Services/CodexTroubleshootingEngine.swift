@@ -131,6 +131,7 @@ nonisolated enum BackendDiscovery {
 @MainActor final class CodexTroubleshootingEngine: TroubleshootingEngine {
     private(set) var backendLabel = "Connecting…"
     private var selected: Backend?
+    private var selectedRequest: Backend?
     private var history: [String] = []
     private let demo = MockTroubleshootingEngine()
     private var generation = UUID()
@@ -138,12 +139,20 @@ nonisolated enum BackendDiscovery {
         reset()
         let requested = Backend(rawValue: ProcessInfo.processInfo.environment["FAMILY_IT_BACKEND"]
             ?? UserDefaults.standard.string(forKey: "backend") ?? "auto") ?? .auto
-        if requested == .auto {
-            let codex = await BackendDiscovery.authenticated(.codex)
-            try Task.checkCancellation()
-            let claude = codex ? false : await BackendDiscovery.authenticated(.claude)
-            selected = BackendDiscovery.select(requested, codex: codex, claude: claude)
-        } else { selected = requested }
+        if selectedRequest != requested { selected = nil }
+        selectedRequest = requested
+        if selected == nil {
+            if requested == .auto {
+                let codex = await BackendDiscovery.authenticated(.codex)
+                try Task.checkCancellation()
+                let claude = codex ? false : await BackendDiscovery.authenticated(.claude)
+                selected = BackendDiscovery.select(requested, codex: codex, claude: claude)
+            } else { selected = requested }
+        }
+        if requested == .auto, selected == .mock {
+            selected = nil
+            throw GuidanceError.unavailable
+        }
         backendLabel = selected?.label ?? "Demo mode"
         if selected == .mock { return try await demo.start(problem: problem) }
         return try await request(problem)
@@ -166,7 +175,7 @@ nonisolated enum BackendDiscovery {
         if selected == .mock { demo.recordActionOutcome(succeeded: succeeded) }
         else { history.append("LOCAL ACTION: \(succeeded ? "The confirmed request succeeded." : "The action was cancelled or failed.") Ask what the user sees. Do not assume the original problem is solved.") }
     }
-    func reset() { generation = UUID(); history = []; selected = nil; demo.reset() }
+    func reset() { generation = UUID(); history = []; demo.reset() }
     private func request(_ event: String) async throws -> AssistantTurn {
         guard let selected, let executable = BackendDiscovery.executable(selected) else { throw GuidanceError.unavailable }
         let ticket = generation
@@ -201,6 +210,7 @@ nonisolated enum BackendDiscovery {
     nonisolated static func codexArguments(schema: URL, reply: URL) -> [String] {
         ["exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check",
          "--sandbox", "read-only", "--output-schema", schema.path, "--output-last-message", reply.path,
+         "-c", "model_reasoning_effort=\"low\"",
          "-c", "web_search=\"disabled\"", "-c", "features.view_image=false",
          "-c", "features.shell_tool=false", "-c", "features.unified_exec=false",
          "-c", "features.apply_patch_freeform=false", "-c", "features.plugins=false",
@@ -216,7 +226,7 @@ nonisolated enum BackendDiscovery {
     {"type":"object","additionalProperties":false,"required":["reply","kind","action"],
     "properties":{"reply":{"type":"string"},"kind":{"type":"string","enum":["instruction","question","completion"]},
     "action":{"type":"object","additionalProperties":false,"required":["type","application","element","text","requiresConfirmation"],
-    "properties":{"type":{"type":"string","enum":["none","open_application","open_system_settings","focus_application","inspect_accessibility_element","click_accessibility_element","type_confirmed_text"]},
+    "properties":{"type":{"type":"string","enum":["none","open_application","open_system_settings","open_url","focus_application","inspect_accessibility_element","click_accessibility_element","type_confirmed_text","send_message","create_note"]},
     "application":{"type":["string","null"]},"element":{"type":["string","null"]},"text":{"type":["string","null"]},"requiresConfirmation":{"type":"boolean"}}}}}
     """
     nonisolated static let instructions = """
@@ -226,14 +236,20 @@ nonisolated enum BackendDiscovery {
     Wait for explicit completion before advancing. Failure means try a different route.
     Confirm the ORIGINAL problem is solved before completion. No praise like "Good job".
     Never claim screen visibility. Never request passwords, verification codes, recovery keys or secrets.
-    Never propose purchases, installation by automation, deletion, messages, email, security bypasses
-    or terminal commands. Never use tools. Plain text, no Markdown. Describe icons when useful.
-    Optional actions require confirmation. No shell, code or AppleScript.
-    Applications: Zoom, System Settings, Photos, Finder, Safari, App Store.
+    Never propose purchases, installation, deletion, email, security bypasses or terminal commands.
+    Never generate shell code or AppleScript. Choose only a structured action below; the app executes
+    its own reviewed native implementation. Plain text, no Markdown. Describe icons when useful.
+    All actions set requiresConfirmation true. Opening an installed app, focusing it, opening an http/https
+    web URL, or opening a listed setting happens immediately. Never put credentials in a URL.
+    Applications may be any ordinary installed Mac app named by the user.
     Settings in element: General, Sound, Wi-Fi, Accessibility, Microphone, Speech Recognition.
     Inspect only "Focused element" in Finder or Photos. Click only Search or Back in those apps.
     Type only nonsecret exact text in the Search field of Finder or Photos, maximum 120 characters.
-    Use none for manual guidance; irrelevant fields must be null, requiresConfirmation always true.
+    For open_url, put the complete http/https URL in text and set application and element null.
+    For send_message, application is the exact phone number or Apple ID and text is the message; if the
+    user gives only a person's name, ask for their number or Apple ID. Never invent a recipient or content.
+    For create_note, element is the note title and text is the exact note body. These two actions are shown
+    to the user for explicit confirmation. Use none for guidance; irrelevant fields must be null.
     Action results do not prove the problem is solved. Ask what the user sees after an action.
     """
 }

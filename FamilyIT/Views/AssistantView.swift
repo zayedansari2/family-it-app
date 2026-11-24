@@ -21,7 +21,7 @@ struct AssistantView: View {
             .font(.callout)
             Spacer(minLength: 12)
             if let turn = assistant.currentTurn {
-                Text(turn.kind == .question ? "TELL ME WHAT YOU SEE" : "ONE STEP AT A TIME")
+                Text(turn.kind == .question ? "FAMILY IT" : "HERE TO HELP")
                     .font(.system(size: 10, weight: .semibold)).tracking(2).foregroundStyle(FamilyITColors.accent)
                 Text(turn.text)
                     .font(.system(size: largerText ? 38 : 30, weight: .medium))
@@ -57,7 +57,11 @@ struct AssistantView: View {
                     }
                 }
                 if !assistant.heardText.isEmpty {
-                    Text("I heard: \(assistant.heardText)").font(.callout).foregroundStyle(FamilyITColors.muted).lineLimit(2)
+                    Text("I heard: \(assistant.heardText)").font(.callout).foregroundStyle(FamilyITColors.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                ForEach(assistant.actionChoices) { choice in
+                    Button(choice.title) { assistant.selectAction(choice) }.buttonStyle(SecondaryActionButtonStyle())
                 }
                 ActivityStatusView(activity: assistant.activity)
                 if assistant.isPreparing {
@@ -68,7 +72,8 @@ struct AssistantView: View {
                     VStack(spacing: 16) {
                         Label("YOUR PERMISSION", systemImage: "hand.raised")
                             .font(.system(size: 10, weight: .semibold)).tracking(1.3).foregroundStyle(FamilyITColors.accent)
-                        Text(action.description).font(.title3.weight(.medium)).multilineTextAlignment(.center)
+                        Text(action.type == .sendMessage ? "Send this draft?" : action.description)
+                            .font(.title3.weight(.medium)).multilineTextAlignment(.center)
                         HStack(spacing: 12) {
                             Button("Continue", action: assistant.confirmAction).buttonStyle(PrimaryActionButtonStyle())
                             Button("Cancel", action: assistant.cancelAction).buttonStyle(SecondaryActionButtonStyle())
@@ -78,7 +83,7 @@ struct AssistantView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
                     .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.8)) }
                     .accessibilityElement(children: .contain)
-                } else if turn.kind == .instruction {
+                } else if turn.kind == .instruction && assistant.isWiFiFlow {
                     Button { assistant.didCompleteInstruction() } label: {
                         Label("I did it", systemImage: "checkmark")
                     }
